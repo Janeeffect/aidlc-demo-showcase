@@ -43,10 +43,18 @@ function ResultPageContent() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => router.back()}
-                className="text-[#b0b0c0] hover:text-[#e4e4ed] transition-colors text-sm"
+                className="px-3 py-1.5 text-[#b0b0c0] hover:text-[#e4e4ed] hover:bg-[#1a1a25] rounded-md transition-all text-sm"
               >
-                ← 뒤로
+                ← 데모로 돌아가기
               </button>
+              <div className="w-px h-5 bg-[#2a2a3a]" />
+              <button
+                onClick={() => router.push('/')}
+                className="px-3 py-1.5 text-[#b0b0c0] hover:text-[#e4e4ed] hover:bg-[#1a1a25] rounded-md transition-all text-sm"
+              >
+                처음으로
+              </button>
+              <div className="w-px h-5 bg-[#2a2a3a]" />
               <KiroIcon size={28} />
               <h1 className="text-xl font-semibold"><span className="kiro-gradient-text">AI-DLC</span> 완료</h1>
             </div>
@@ -143,17 +151,7 @@ function ResultPageContent() {
 
 function KiroIcon({ size = 20 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <path d="M12 2C6.48 2 2 6.48 2 12v8c0 1.1.9 2 2 2h2v-2H4v-8c0-4.42 3.58-8 8-8s8 3.58 8 8v8h-2v2h2c1.1 0 2-.9 2-2v-8c0-5.52-4.48-10-10-10z" fill="url(#kiro-icon-grad)"/>
-      <circle cx="9" cy="13" r="1.5" fill="url(#kiro-icon-grad)"/>
-      <circle cx="15" cy="13" r="1.5" fill="url(#kiro-icon-grad)"/>
-      <defs>
-        <linearGradient id="kiro-icon-grad" x1="2" y1="2" x2="22" y2="22">
-          <stop stopColor="#7c5cfc"/>
-          <stop offset="1" stopColor="#4a9eff"/>
-        </linearGradient>
-      </defs>
-    </svg>
+    <img src="/kiro.jpg" alt="Kiro" width={size} height={size} className="rounded-sm object-contain" />
   );
 }
 

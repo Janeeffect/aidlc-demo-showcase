@@ -18,6 +18,7 @@ interface KiroIDELayoutProps {
   editorContent: string;
   onFileClick?: (path: string) => void;
   isTyping?: boolean;
+  isAnimating?: boolean;
   chatMessages: ChatMessage[];
 }
 
@@ -27,6 +28,7 @@ export default function KiroIDELayout({
   editorContent,
   onFileClick,
   isTyping = false,
+  isAnimating = false,
   chatMessages,
 }: KiroIDELayoutProps) {
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -108,6 +110,12 @@ export default function KiroIDELayout({
                 <span>Kiro가 응답 중...</span>
               </div>
             )}
+            {!isTyping && isAnimating && (
+              <div className="flex items-center gap-2 text-[#8888a0] text-sm">
+                <div className="w-3 h-3 border-2 border-[#7c5cfc] border-t-transparent rounded-full animate-spin" />
+                <span>단계 진행 중...</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -117,6 +125,12 @@ export default function KiroIDELayout({
         <div className="flex items-center gap-4">
           <span>Kiro</span>
           <span>main</span>
+          {isAnimating && (
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 border border-white border-t-transparent rounded-full animate-spin" />
+              처리 중
+            </span>
+          )}
         </div>
         <div className="flex-1" />
         <div className="flex items-center gap-4">
@@ -130,12 +144,7 @@ export default function KiroIDELayout({
 
 function KiroIcon({ size = 20 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <path d="M12 2C6.48 2 2 6.48 2 12v8c0 1.1.9 2 2 2h2v-2H4v-8c0-4.42 3.58-8 8-8s8 3.58 8 8v8h-2v2h2c1.1 0 2-.9 2-2v-8c0-5.52-4.48-10-10-10z" fill="url(#kg)"/>
-      <circle cx="9" cy="13" r="1.5" fill="url(#kg)"/>
-      <circle cx="15" cy="13" r="1.5" fill="url(#kg)"/>
-      <defs><linearGradient id="kg" x1="2" y1="2" x2="22" y2="22"><stop stopColor="#7c5cfc"/><stop offset="1" stopColor="#4a9eff"/></linearGradient></defs>
-    </svg>
+    <img src="/kiro.jpg" alt="Kiro" width={size} height={size} className="rounded-sm object-contain" />
   );
 }
 
