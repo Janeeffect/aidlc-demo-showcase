@@ -6,7 +6,7 @@ export interface RunStepCallbacks {
   onChatReset: (messages: ChatMessage[]) => void;
   onChatMessage: (msg: ChatMessage) => void;
   onFileAdd: (file: FileTreeNode) => void;
-  onEditorContent: (content: string) => void;
+  onEditorContent: (content: string, fileName?: string) => void;
   onActiveFile: (path: string) => void;
   onPhaseChange: (phase: Phase, stage: Stage) => void;
   onProgress: (progress: number) => void;
@@ -29,7 +29,8 @@ function delay(ms: number): Promise<void> {
  */
 export function useRunStep(
   demoSteps: DemoStep[],
-  callbacks: RunStepCallbacks
+  callbacks: RunStepCallbacks,
+  speedMultiplier: number = 1
 ): UseRunStepReturn {
   const runIdRef = useRef(0);
 
@@ -38,6 +39,7 @@ export function useRunStep(
 
     const myRunId = ++runIdRef.current;
     const cancelled = () => runIdRef.current !== myRunId;
+    const d = (ms: number) => delay(Math.round(ms / speedMultiplier));
 
     try {
       callbacks.onAnimatingChange(true);
@@ -60,14 +62,14 @@ export function useRunStep(
 
         if (msg.type === 'ai') {
           callbacks.onTypingChange(true);
-          await delay(800);
+          await d(800);
           if (cancelled()) { callbacks.onTypingChange(false); return; }
           callbacks.onTypingChange(false);
         } else if (msg.type === 'user') {
-          await delay(400);
+          await d(400);
           if (cancelled()) return;
         } else {
-          await delay(200);
+          await d(200);
           if (cancelled()) return;
         }
 
@@ -75,7 +77,7 @@ export function useRunStep(
       }
 
       if (cancelled()) return;
-      await delay(500);
+      await d(500);
       if (cancelled()) return;
 
       // 파일 생성
@@ -86,7 +88,7 @@ export function useRunStep(
         isNew: true,
       });
       callbacks.onActiveFile(step.fileName);
-      callbacks.onEditorContent(step.fileContent);
+      callbacks.onEditorContent(step.fileContent, step.fileName);
 
       const progress = Math.round(((stepIdx + 1) / demoSteps.length) * 100);
       callbacks.onProgress(progress);
@@ -108,7 +110,7 @@ export function useRunStep(
       callbacks.onTypingChange(false);
       callbacks.onStepComplete();
     }
-  }, [demoSteps, callbacks]);
+  }, [demoSteps, callbacks, speedMultiplier]);
 
   const cancelCurrentRun = useCallback(() => {
     runIdRef.current++;

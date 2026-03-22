@@ -1,5 +1,7 @@
 // 산업별 시나리오 데이터 (DemoPage에서 외부화)
 
+import { SUB_SCENARIOS } from './subScenarios';
+
 export interface TechStack {
   frontend: string;
   backend: string;
@@ -223,6 +225,17 @@ export const SCENARIOS: ScenarioDefinition[] = [
     awsServices: ['API Gateway', 'Lambda', 'DynamoDB', 'AppSync (WebSocket)', 'ElastiCache (온라인 상태)', 'S3 (파일)', 'SNS (푸시 알림)'],
   },
 ];
+
+// 서브 시나리오 통합 (예시별 고유 질문/기능/스토리)
+// 기존 7개 산업 시나리오 + 23개 서브 시나리오 통합
+// SUB_SCENARIOS는 demoContent/resultData가 없지만 optional 필드이므로 호환
+const BASE_SCENARIOS: ScenarioDefinition[] = [
+  ...SCENARIOS,
+  ...(SUB_SCENARIOS as ScenarioDefinition[]),
+];
+
+// SCENARIOS를 재할당할 수 없으므로 통합 배열을 별도 export
+export const ALL_SCENARIOS: ScenarioDefinition[] = BASE_SCENARIOS;
 
 export const DEFAULT_SCENARIO: ScenarioDefinition = {
   id: 'default',

@@ -12,6 +12,7 @@ import { logService } from '@/services/LogService';
 import { useDemoSession } from '@/contexts/DemoSessionContext';
 import { useTranslation } from '@/i18n';
 import LanguageToggle from '@/components/ui/LanguageToggle';
+import { getScenarioById } from '@/utils/scenarioDetector';
 
 type TabType = 'mvp' | 'architecture' | 'workflow' | 'estimate' | 'aidlc' | 'kiro';
 
@@ -132,7 +133,7 @@ function ResultPageContent() {
           )}
           {activeTab === 'aidlc' && (
             <motion.div key="aidlc" role="tabpanel" id="tabpanel-aidlc" aria-labelledby="tab-aidlc" tabIndex={0} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <AIDLCOutputsTab projectIdea={projectIdea} />
+              <AIDLCOutputsTab projectIdea={projectIdea} scenarioId={scenarioId} />
             </motion.div>
           )}
           {activeTab === 'kiro' && (
@@ -287,35 +288,39 @@ function translateSeniority(level: string, locale: string): string {
   return map[level] || level;
 }
 
-function AIDLCOutputsTab({ projectIdea }: { projectIdea: string }) {
+function AIDLCOutputsTab({ projectIdea, scenarioId }: { projectIdea: string; scenarioId?: string }) {
   const [selectedOutput, setSelectedOutput] = useState<string | null>(null);
   const { t } = useTranslation();
+
+  const s = getScenarioById(scenarioId || '');
+  const user1 = s.userTypes.split('/')[0];
+  const user2 = s.userTypes.split('/')[1] || '관리자';
 
   const outputs: Record<string, { name: string; phase: string; content: string }> = {
     'requirements.md': {
       name: '요구사항 정의서',
       phase: 'INCEPTION',
-      content: `# 요구사항 정의서\n## 프로젝트: ${projectIdea}\n\n### 1. 기능 요구사항 (Functional Requirements)\n\n| ID | 요구사항 | 우선순위 | 상태 |\n|----|----------|----------|------|\n| FR-001 | 사용자 회원가입 로그인 기능 | 높음 | 정의됨 |\n| FR-002 | 소셜 로그인 연동 (Google, Kakao) | 중간 | 정의됨 |\n| FR-003 | 사용자 프로필 관리 | 중간 | 정의됨 |\n| FR-004 | 핵심 비즈니스 로직 구현 | 높음 | 정의됨 |\n| FR-005 | 대시보드 알림 기능 | 중간 | 정의됨 |\n| FR-006 | 검색 및 필터링 기능 | 높음 | 정의됨 |\n| FR-007 | 데이터 내보내기 (CSV, PDF) | 낮음 | 정의됨 |\n\n### 2. 비기능 요구사항\n\n#### 2.1 성능\n- 페이지 로딩 시간: 3초 이내\n- API 응답 시간: 500ms 이내\n- 동시 접속자: 1,000명 이상 지원\n\n#### 2.2 보안\n- HTTPS 전수 사용\n- JWT 기반 인증\n- 민감 데이터 암호화 처리\n- OWASP Top 10 보안 취약점 대응`,
+      content: `# 요구사항 분석서\n## 프로젝트: ${projectIdea}\n## 도메인: ${s.domain}\n\n---\n\n### 1. 프로젝트 개요\n\n- 프로젝트명: ${projectIdea}\n- 도메인: ${s.domain}\n- 대상 사용자: ${s.userTypes}\n- 기술 스택: ${s.techStack.frontend} / ${s.techStack.backend} / ${s.techStack.db}\n\n### 2. 기능 요구사항\n\n| ID | 요구사항 | 우선순위 | MVP |\n|----|----------|----------|-----|\n${s.mainFeatures.map((f, i) => `| FR-${String(i+1).padStart(3,'0')} | ${f} | ${i < 2 ? '높음' : '중간'} | ${i < 3 ? 'O' : 'X'} |`).join('\n')}\n\n### 3. 비기능 요구사항\n\n| ID | 카테고리 | 요구사항 | 목표치 |\n|----|----------|----------|--------|\n| NFR-001 | 성능 | API 응답 시간 | P95 < 500ms |\n| NFR-002 | 성능 | 동시 사용자 | 1,000명 |\n| NFR-003 | 보안 | ${s.nfrFocus} | 필수 |\n| NFR-004 | 가용성 | SLA | 99.9% |\n\n### 4. 기술 스택\n\n- Frontend: ${s.techStack.frontend}\n- Backend: ${s.techStack.backend}\n- Database: ${s.techStack.db}\n- 추가: ${s.techStack.extra}`,
     },
     'user-stories.md': {
       name: '사용자 스토리',
       phase: 'INCEPTION',
-      content: `# 사용자 스토리\n## 프로젝트: ${projectIdea}\n\n### Epic 1: 사용자 인증\n\n**US-001: 회원가입**\n- As a 신규 사용자\n- I want to 이메일로 회원가입을\n- So that 서비스를 이용할 수 있다\n\n인수 기준:\n- [ ] 이메일 형식 검증\n- [ ] 비밀번호 강도 검증 (8자 이상, 특수문자 포함)\n- [ ] 이메일 중복 확인\n- [ ] 인증 이메일 발송\n\n**US-002: 소셜 로그인**\n- As a 사용자\n- I want to 소셜 계정으로 간편 로그인을\n- So that 빠르게 서비스에 접근할 수 있다\n\n### Epic 2: 핵심 기능\n\n**US-003: 메인 기능 사용**\n- As a 로그인한 사용자\n- I want to 핵심 서비스 기능을 이용\n- So that 목표를 달성할 수 있다`,
+      content: `# 사용자 스토리\n## 프로젝트: ${projectIdea}\n\n---\n\n## 페르소나\n\n### ${user1}\n- 역할: ${s.domain}의 주요 사용자\n- 목표: 서비스를 통해 핵심 가치를 얻음\n\n### ${user2}\n- 역할: ${s.domain}의 운영/관리 담당\n- 목표: 서비스 운영 효율화\n\n---\n\n## ${user1} 스토리\n\n${s.userStories[0].stories.map((st, i) => `**US-${String(i+1).padStart(3,'0')}**: ${user1}로서 ${st}\n- 인수 기준: ${st.replace('싶다', '수 있다')}\n- 우선순위: ${i === 0 ? '높음' : '중간'}`).join('\n\n')}\n\n## ${user2} 스토리\n\n${s.userStories[1].stories.map((st, i) => `**US-${String(i+11).padStart(3,'0')}**: ${user2}로서 ${st}\n- 인수 기준: ${st.replace('싶다', '수 있다')}\n- 우선순위: ${i === 0 ? '높음' : '중간'}`).join('\n\n')}`,
     },
     'components.md': {
       name: '컴포넌트 설계서',
       phase: 'INCEPTION',
-      content: `# 컴포넌트 설계서\n## 프로젝트: ${projectIdea}\n\n### 1. 프론트엔드 컴포넌트\n\nsrc/\n  components/\n    common/ (Button, Input, Modal, Loading)\n    layout/ (Header, Sidebar, Footer)\n    features/\n      auth/ (LoginForm, SignupForm)\n      dashboard/ (StatsCard, DataTable)\n  hooks/ (useAuth, useApi)\n  contexts/ (AuthContext)\n\n### 2. 컴포넌트 의존성\n\n| 컴포넌트 | 의존성 | 설명 |\n|----------|--------|------|\n| LoginForm | useAuth, Input, Button | 로그인 폼 |\n| Dashboard | useApi, StatsCard, DataTable | 대시보드 |\n| Header | AuthContext, Button | 상단 네비게이션 |`,
+      content: `# 컴포넌트 설계서\n## ${s.domain}\n\n---\n\n### 1. API 설계\n\n| Method | Endpoint | 설명 |\n|--------|----------|------|\n${s.apiEndpoints.map(e => { const p = e.split(' - '); const mp = p[0].split(' '); return `| ${mp[0]} | ${mp[1]} | ${p[1] || ''} |`; }).join('\n')}\n\n### 2. 프론트엔드 구조\n\nsrc/\n  app/ (라우팅)\n  components/\n    common/ (Button, Input, Modal)\n    features/\n${s.mainFeatures.slice(0, 3).map(f => `      ${f.split(' ')[0]}/`).join('\n')}\n  hooks/ (useAuth, useApi)\n  services/ (api.ts)\n  types/ (index.ts)\n\n### 3. 데이터 모델\n\n${s.mainFeatures.slice(0, 3).map((f, i) => `- **${f.split(' ')[0]}**: id, ${i === 0 ? 'title, description, status' : 'userId, data, timestamp'}, createdAt`).join('\n')}`,
     },
-    'api-spec.md': {
-      name: 'API 명세서',
+    'nfr-design.md': {
+      name: 'NFR 설계서',
       phase: 'CONSTRUCTION',
-      content: `# API 명세서\n## 프로젝트: ${projectIdea}\n\n### Base URL: https://api.example.com/v1\n\n### 1. 인증 API\n\nPOST /auth/signup - 회원가입\nPOST /auth/login - 로그인\nPOST /auth/refresh - 토큰 갱신\n\n### 2. 리소스 API\n\nGET /resources - 목록 조회\nPOST /resources - 생성\nGET /resources/:id - 상세 조회\nPUT /resources/:id - 수정\nDELETE /resources/:id - 삭제`,
+      content: `# 비기능 요구사항 설계서\n## ${s.domain}\n\n---\n\n### 1. 성능 설계\n\n| 지표 | 목표 | 전략 |\n|------|------|------|\n| API 응답 | P95 < 500ms | Lambda 최적화 + 캐시 |\n| 페이지 로드 | < 2초 (LCP) | CloudFront CDN |\n| 동시 사용자 | 1,000명 | Auto Scaling |\n\n### 2. 보안 설계\n\n- 핵심: ${s.nfrFocus}\n- 인증: AWS Cognito + JWT\n- 암호화: TLS 1.3 (전송) + AES-256 (저장)\n- 네트워크: WAF + API Gateway 스로틀링\n\n### 3. AWS 서비스\n\n${s.awsServices.map(svc => `- ${svc}`).join('\n')}`,
     },
     'infrastructure.yaml': {
       name: 'AWS 인프라 템플릿',
       phase: 'OPERATIONS',
-      content: `# AWS CloudFormation Template\nAWSTemplateFormatVersion: '2010-09-09'\nDescription: ${projectIdea} Infrastructure\n\nResources:\n  ApiGateway:\n    Type: AWS::ApiGatewayV2::Api\n  MainFunction:\n    Type: AWS::Lambda::Function\n    Properties:\n      Runtime: nodejs18.x\n      MemorySize: 256\n  MainTable:\n    Type: AWS::DynamoDB::Table\n    Properties:\n      BillingMode: PAY_PER_REQUEST\n  AssetsBucket:\n    Type: AWS::S3::Bucket`,
+      content: `# AWS CloudFormation Template\nAWSTemplateFormatVersion: '2010-09-09'\nDescription: ${projectIdea} - ${s.domain} Infrastructure\n\nResources:\n${s.awsServices.map(svc => { const name = svc.split(' ')[0].replace(/[^a-zA-Z]/g, ''); return `  ${name}:\n    Type: AWS::${svc.split(' ')[0]}\n    Properties:\n      Tags:\n        - Key: Project\n          Value: ${projectIdea}`; }).join('\n\n')}\n\nOutputs:\n  ApiEndpoint:\n    Value: !Sub 'https://api.example.com/v1'`,
     },
   };
 

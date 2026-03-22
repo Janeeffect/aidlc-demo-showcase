@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { FileTreeNode } from '@/types/demo';
@@ -23,6 +23,18 @@ interface KiroIDELayoutProps {
   chatMessages: ChatMessage[];
 }
 
+function ResizeHandle({ onMouseDown }: { onMouseDown: (e: React.MouseEvent) => void }) {
+  return (
+    <div
+      className="w-1 cursor-col-resize bg-[#2a2a3a] hover:bg-[#7c5cfc] active:bg-[#7c5cfc] transition-colors flex-shrink-0"
+      onMouseDown={onMouseDown}
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="패널 크기 조절"
+    />
+  );
+}
+
 export default function KiroIDELayout({
   files,
   activeFile,
@@ -33,6 +45,13 @@ export default function KiroIDELayout({
   chatMessages,
 }: KiroIDELayoutProps) {
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const [explorerWidth, setExplorerWidth] = useState(224); // 14rem = 224px
+  const [chatWidth, setChatWidth] = useState(320); // 20rem = 320px
+  const draggingRef = useRef<'explorer' | 'chat' | null>(null);
+  const startXRef = useRef(0);
+  const startWidthRef = useRef(0);
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -40,8 +59,50 @@ export default function KiroIDELayout({
     }
   }, [chatMessages, isTyping]);
 
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!draggingRef.current) return;
+    const delta = e.clientX - startXRef.current;
+    if (draggingRef.current === 'explorer') {
+      setExplorerWidth(Math.max(160, Math.min(400, startWidthRef.current + delta)));
+    } else {
+      // chat: 왼쪽으로 드래그하면 넓어짐
+      setChatWidth(Math.max(240, Math.min(600, startWidthRef.current - delta)));
+    }
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    draggingRef.current = null;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }, []);
+
+  useEffect(() => {
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [handleMouseMove, handleMouseUp]);
+
+  const startExplorerResize = (e: React.MouseEvent) => {
+    draggingRef.current = 'explorer';
+    startXRef.current = e.clientX;
+    startWidthRef.current = explorerWidth;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  const startChatResize = (e: React.MouseEvent) => {
+    draggingRef.current = 'chat';
+    startXRef.current = e.clientX;
+    startWidthRef.current = chatWidth;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
   return (
-    <div role="main" aria-label="Kiro IDE" className="flex flex-col h-full bg-[#0a0a0f] text-[#e4e4ed] font-sans">
+    <div ref={containerRef} role="main" aria-label="Kiro IDE" className="flex flex-col h-full bg-[#0a0a0f] text-[#e4e4ed] font-sans">
       {/* Title Bar */}
       <div className="flex items-center h-9 bg-[#12121a] border-b border-[#2a2a3a] px-4">
         <div className="flex items-center gap-2">
@@ -62,7 +123,7 @@ export default function KiroIDELayout({
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left: File Explorer */}
-        <div className="w-56 bg-[#12121a] border-r border-[#2a2a3a] flex flex-col">
+        <div style={{ width: explorerWidth }} className="bg-[#12121a] border-r border-[#2a2a3a] flex flex-col flex-shrink-0">
           <div className="px-3 py-2 text-[11px] uppercase text-[#8888a0] font-semibold tracking-wide">
             탐색기
           </div>
@@ -71,8 +132,11 @@ export default function KiroIDELayout({
           </div>
         </div>
 
+        {/* Resize Handle: Explorer | Preview */}
+        <ResizeHandle onMouseDown={startExplorerResize} />
+
         {/* Center: Document Preview */}
-        <div className="flex-1 flex flex-col bg-[#0a0a0f] border-r border-[#2a2a3a]">
+        <div className="flex-1 flex flex-col bg-[#0a0a0f] min-w-0">
           {activeFile && (
             <div className="h-9 bg-[#12121a] border-b border-[#2a2a3a] flex items-center">
               <div className="flex items-center px-4 h-full bg-[#0a0a0f] border-r border-[#2a2a3a] text-sm">
@@ -91,8 +155,11 @@ export default function KiroIDELayout({
           </div>
         </div>
 
+        {/* Resize Handle: Preview | Chat */}
+        <ResizeHandle onMouseDown={startChatResize} />
+
         {/* Right: Chat Panel */}
-        <div className="w-80 bg-[#12121a] flex flex-col">
+        <div style={{ width: chatWidth }} className="bg-[#12121a] flex flex-col flex-shrink-0">
           <div className="px-4 py-3 border-b border-[#2a2a3a] flex items-center gap-2">
             <KiroIcon size={14} />
             <span className="text-sm font-medium text-[#e4e4ed]">Kiro Chat</span>

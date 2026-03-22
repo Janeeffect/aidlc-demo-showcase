@@ -84,7 +84,7 @@ describe('useRunStep', () => {
     expect(cbs.onPhaseChange).toHaveBeenCalledWith('INCEPTION', 'requirements');
     expect(cbs.onChatMessage).toHaveBeenCalled();
     expect(cbs.onFileAdd).toHaveBeenCalled();
-    expect(cbs.onEditorContent).toHaveBeenCalledWith('# 요구사항');
+    expect(cbs.onEditorContent).toHaveBeenCalledWith('# 요구사항', 'aidlc-docs/inception/requirements.md');
     expect(cbs.onProgress).toHaveBeenCalled();
     expect(cbs.onStepComplete).toHaveBeenCalled();
   });

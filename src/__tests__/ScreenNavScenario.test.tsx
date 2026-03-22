@@ -15,7 +15,7 @@ describe('Screen 1 scenarioId 전달', () => {
   test('TC-CR-008b: 다양한 시나리오에 대해 올바른 scenarioId 생성', () => {
     const cases = [
       { idea: '결제 서비스', expectedScenario: 'fintech' },
-      { idea: '진료 예약 시스템', expectedScenario: 'healthcare' },
+      { idea: '진료 예약 시스템', expectedScenario: 'healthcare-appointment' },
       { idea: '온라인 강의 플랫폼', expectedScenario: 'education' },
     ];
     cases.forEach(({ idea, expectedScenario }) => {

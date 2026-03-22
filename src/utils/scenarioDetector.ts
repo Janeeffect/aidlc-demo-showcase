@@ -1,5 +1,5 @@
 // ScenarioDetector - 사용자 입력 기반 산업 시나리오 감지
-import { ScenarioDefinition, SCENARIOS, DEFAULT_SCENARIO } from '@/data/scenarios';
+import { ScenarioDefinition, ALL_SCENARIOS, DEFAULT_SCENARIO } from '@/data/scenarios';
 
 /**
  * 시나리오별 매칭 점수 계산
@@ -23,7 +23,7 @@ export function calculateMatchScore(idea: string, scenario: ScenarioDefinition):
  * 매칭되는 시나리오가 없으면 DEFAULT_SCENARIO를 반환한다.
  */
 export function getScenarioById(scenarioId: string): ScenarioDefinition {
-  const found = SCENARIOS.find(s => s.id === scenarioId);
+  const found = ALL_SCENARIOS.find(s => s.id === scenarioId);
   return found || DEFAULT_SCENARIO;
 }
 
@@ -36,7 +36,7 @@ export function detectScenario(idea: string): ScenarioDefinition {
   let bestScenario: ScenarioDefinition = DEFAULT_SCENARIO;
   let bestScore = 0;
 
-  for (const scenario of SCENARIOS) {
+  for (const scenario of ALL_SCENARIOS) {
     const score = calculateMatchScore(lowerIdea, scenario);
     if (score > bestScore || (score === bestScore && score > 0 && scenario.priority < bestScenario.priority)) {
       bestScore = score;

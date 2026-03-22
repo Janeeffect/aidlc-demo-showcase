@@ -24,15 +24,27 @@ function DemoPageContent() {
   const { t } = useTranslation();
 
   const [activeFile, setActiveFile] = useState<string | null>(null);
-  const [editorContent, setEditorContent] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [fileContentsMap, setFileContentsMap] = useState<Record<string, string>>({});
   const [currentAnimSequence, setCurrentAnimSequence] = useState<AnimationSequence | null>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [chatSpeed, setChatSpeed] = useState(1); // 0.5x ~ 3x
 
   const demoSteps = useMemo(() => generateDemoSteps(projectIdea, scenarioId), [projectIdea, scenarioId]);
 
+  // CR-05 fix: editorContent를 activeFile + fileContentsMap에서 파생
+  const editorContent = useMemo(() => {
+    if (!activeFile) return '';
+    // fileContentsMap에 키가 존재하면 (빈 문자열 포함) 해당 값 사용
+    if (activeFile in fileContentsMap) return fileContentsMap[activeFile];
+    // fallback: demoSteps에서 매칭
+    const matched = demoSteps.find(step => step.fileName === activeFile);
+    return matched?.fileContent || '';
+  }, [activeFile, fileContentsMap, demoSteps]);
+
   const onComplete = useCallback(() => {
+    setIsNavigating(true);
     router.push(`/result?idea=${encodeURIComponent(projectIdea)}&scenario=${scenarioId}`);
   }, [router, projectIdea, scenarioId]);
 
@@ -52,11 +64,14 @@ function DemoPageContent() {
       const matchedStep = demoSteps.find(step => step.fileName === file.path);
       if (matchedStep) {
         setFileContentsMap(prev => ({ ...prev, [file.path]: matchedStep.fileContent }));
-      } else {
-        setFileContentsMap(prev => ({ ...prev, [file.path]: '' }));
       }
     },
-    onEditorContent: (content) => { setEditorContent(content); },
+    onEditorContent: (content, fileName) => {
+      // CR-05 fix: fileContentsMap에 저장하여 파일별 콘텐츠 유지
+      if (fileName) {
+        setFileContentsMap(prev => ({ ...prev, [fileName]: content }));
+      }
+    },
     onActiveFile: (path) => { setActiveFile(path); },
     onPhaseChange: (phase, stage) => { setPhase(phase); setStage(stage); },
     onProgress: (p) => { setProgress(p); },
@@ -65,7 +80,7 @@ function DemoPageContent() {
     onTypingChange: (v) => { setIsTyping(v); },
   }), [addFile, setPhase, setStage, setProgress, setStepCompleted, setIsAnimating, demoSteps, currentStep]);
 
-  const { runStep } = useRunStep(demoSteps, callbacks);
+  const { runStep } = useRunStep(demoSteps, callbacks, chatSpeed);
 
   // 첫 진입 시 자동 시작
   const hasStarted = useRef(false);
@@ -89,17 +104,7 @@ function DemoPageContent() {
 
   const handleFileClick = (path: string) => {
     setActiveFile(path);
-    // CR-05: fileContentsMap 우선 조회 (1:1 매핑 보장)
-    if (fileContentsMap[path] && fileContentsMap[path] !== '') {
-      setEditorContent(fileContentsMap[path]);
-      return;
-    }
-    // fallback: demoSteps에서 fileName 매칭
-    const matchedStep = demoSteps.find(step => step.fileName === path);
-    if (matchedStep) {
-      setEditorContent(matchedStep.fileContent);
-      return;
-    }
+    // CR-05 fix: editorContent는 useMemo로 activeFile + fileContentsMap에서 자동 파생
   };
 
   const handleBack = () => { router.push('/'); };
@@ -136,6 +141,22 @@ function DemoPageContent() {
             ))}
           </div>
           <LanguageToggle />
+          {/* 속도 조절기 */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-[#8888a0]">속도</span>
+            <select
+              value={chatSpeed}
+              onChange={(e) => setChatSpeed(Number(e.target.value))}
+              className="bg-[#0a0a0f] text-[#e4e4ed] text-xs px-1.5 py-1 rounded border border-[#2a2a3a] focus:outline-none focus:border-[#7c5cfc]"
+              aria-label="대화 속도 조절"
+            >
+              <option value={0.5}>0.5x</option>
+              <option value={1}>1x</option>
+              <option value={1.5}>1.5x</option>
+              <option value={2}>2x</option>
+              <option value={3}>3x</option>
+            </select>
+          </div>
           <button
             onClick={handleNextStep}
             disabled={!canGoNext}
@@ -170,6 +191,14 @@ function DemoPageContent() {
         speed={1.5}
         autoStart={true}
       />
+      {isNavigating && (
+        <div className="fixed inset-0 bg-[#0a0a0f]/80 flex items-center justify-center z-50">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-[#7c5cfc] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-[#e4e4ed] text-sm">결과 페이지로 이동 중...</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

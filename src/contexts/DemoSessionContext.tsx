@@ -104,17 +104,18 @@ function demoReducer(state: DemoSessionState, action: Action): DemoSessionState 
 }
 
 // Helper: Add file to tree (prevents duplicates)
-function addFileToTree(files: FileTreeNode[], newFile: FileTreeNode): FileTreeNode[] {
+function addFileToTree(files: FileTreeNode[], newFile: FileTreeNode, originalPath?: string): FileTreeNode[] {
+  const fullPath = originalPath || newFile.path;
   const pathParts = newFile.path.split('/');
   
   if (pathParts.length === 1) {
     // Check if file already exists
-    const existingIndex = files.findIndex(f => f.name === newFile.name && f.path === newFile.path);
+    const existingIndex = files.findIndex(f => f.name === newFile.name && f.path === fullPath);
     if (existingIndex !== -1) {
       // Update existing file instead of adding duplicate
-      return files.map((f, i) => i === existingIndex ? { ...f, ...newFile, isNew: true } : f);
+      return files.map((f, i) => i === existingIndex ? { ...f, ...newFile, path: fullPath, isNew: true } : f);
     }
-    return [...files, { ...newFile, isNew: true }];
+    return [...files, { ...newFile, path: fullPath, isNew: true }];
   }
 
   const folderName = pathParts[0];
@@ -129,7 +130,7 @@ function addFileToTree(files: FileTreeNode[], newFile: FileTreeNode): FileTreeNo
         return {
           ...file,
           isExpanded: true,
-          children: addFileToTree(file.children || [], childFile),
+          children: addFileToTree(file.children || [], childFile, fullPath),
         };
       }
       return file;
@@ -143,7 +144,7 @@ function addFileToTree(files: FileTreeNode[], newFile: FileTreeNode): FileTreeNo
       path: folderName,
       type: 'folder',
       isExpanded: true,
-      children: addFileToTree([], childFile),
+      children: addFileToTree([], childFile, fullPath),
     };
     return [...files, newFolder];
   }

@@ -37,7 +37,7 @@ describe('ScenarioDetector', () => {
 
     it('TC-CU-002: 핀테크 키워드 매칭', () => {
       const result = detectScenario('간편 송금 서비스');
-      expect(result.id).toBe('fintech');
+      expect(result.id).toBe('fintech-remit');
     });
 
     it('TC-CU-003: 헬스케어 키워드 매칭', () => {

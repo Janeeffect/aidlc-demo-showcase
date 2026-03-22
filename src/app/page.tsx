@@ -40,8 +40,9 @@ export default function StartPage() {
       initSession(projectIdea);
       const sessionId = typeof crypto !== 'undefined' && crypto.randomUUID
         ? crypto.randomUUID() : Math.random().toString(36).substring(2);
+      // fire-and-forget: 네트워크 지연 없이 즉시 전환
       logService.logStart(sessionId, projectIdea, selectedIndustry || undefined).catch(() => {});
-      await fetch('/api/demo/start', {
+      fetch('/api/demo/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectIdea }),
@@ -52,8 +53,6 @@ export default function StartPage() {
       console.error('Failed to start demo:', error);
       const scenarioId = detectScenario(projectIdea).id;
       router.push(`/demo?idea=${encodeURIComponent(projectIdea)}&scenario=${scenarioId}`);
-    } finally {
-      setIsLoading(false);
     }
   };
 
