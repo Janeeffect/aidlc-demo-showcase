@@ -1,9 +1,14 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import localFont from 'next/font/local';
 import './globals.css';
 import { DemoSessionProvider } from '@/contexts/DemoSessionContext';
+import { LanguageProvider } from '@/contexts/LanguageContext';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = localFont({
+  src: '../../public/fonts/inter-latin.woff2',
+  display: 'swap',
+  variable: '--font-inter',
+});
 
 export const metadata: Metadata = {
   title: 'AI-DLC Demo Showcase',
@@ -19,7 +24,9 @@ export default function RootLayout({
     <html lang="ko">
       <body className={inter.className}>
         <DemoSessionProvider>
-          {children}
+          <LanguageProvider>
+            {children}
+          </LanguageProvider>
         </DemoSessionProvider>
       </body>
     </html>

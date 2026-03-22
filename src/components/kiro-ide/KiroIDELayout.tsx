@@ -2,6 +2,7 @@
 
 import React, { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import { FileTreeNode } from '@/types/demo';
 import FileExplorer from './FileExplorer';
 import PhaseIndicator from './PhaseIndicator';
@@ -40,7 +41,7 @@ export default function KiroIDELayout({
   }, [chatMessages, isTyping]);
 
   return (
-    <div className="flex flex-col h-full bg-[#0a0a0f] text-[#e4e4ed] font-sans">
+    <div role="main" aria-label="Kiro IDE" className="flex flex-col h-full bg-[#0a0a0f] text-[#e4e4ed] font-sans">
       {/* Title Bar */}
       <div className="flex items-center h-9 bg-[#12121a] border-b border-[#2a2a3a] px-4">
         <div className="flex items-center gap-2">
@@ -65,7 +66,7 @@ export default function KiroIDELayout({
           <div className="px-3 py-2 text-[11px] uppercase text-[#8888a0] font-semibold tracking-wide">
             탐색기
           </div>
-          <div className="flex-1 overflow-auto">
+          <div role="tree" aria-label="파일 탐색기" className="flex-1 overflow-auto">
             <FileExplorer files={files} selectedFile={activeFile} onFileClick={onFileClick} />
           </div>
         </div>
@@ -79,7 +80,7 @@ export default function KiroIDELayout({
               </div>
             </div>
           )}
-          <div className="flex-1 overflow-auto p-6">
+          <div data-animation-target="editor-content" className="flex-1 overflow-auto p-6">
             {activeFile ? (
               <MarkdownPreview content={editorContent} isTyping={isTyping} />
             ) : (
@@ -96,7 +97,7 @@ export default function KiroIDELayout({
             <KiroIcon size={14} />
             <span className="text-sm font-medium text-[#e4e4ed]">Kiro Chat</span>
           </div>
-          <div ref={chatContainerRef} className="flex-1 overflow-auto p-4 space-y-4">
+          <div ref={chatContainerRef} role="log" aria-live="polite" aria-label="채팅 메시지" className="flex-1 overflow-auto p-4 space-y-4">
             {chatMessages.map((msg) => (
               <ChatBubble key={msg.id} message={msg} />
             ))}
@@ -116,6 +117,17 @@ export default function KiroIDELayout({
                 <span>단계 진행 중...</span>
               </div>
             )}
+          </div>
+          {/* Chat Input Area */}
+          <div className="px-3 py-2 border-t border-[#2a2a3a]">
+            <div className="flex items-center gap-2">
+              <div data-animation-target="chat-input" className="flex-1 bg-[#0a0a0f] text-[#8888a0] text-sm px-3 py-2 rounded-lg border border-[#2a2a3a]">
+                메시지를 입력하세요...
+              </div>
+              <div data-animation-target="send-button" className="w-8 h-8 bg-[#7c5cfc] rounded-lg flex items-center justify-center text-white text-sm cursor-pointer">
+                &#9654;
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -144,7 +156,7 @@ export default function KiroIDELayout({
 
 function KiroIcon({ size = 20 }: { size?: number }) {
   return (
-    <img src="/kiro.jpg" alt="Kiro" width={size} height={size} className="rounded-sm object-contain" />
+    <Image src="/kiro.jpg" alt="Kiro AI 어시스턴트" width={size} height={size} className="rounded-sm object-contain" />
   );
 }
 

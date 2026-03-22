@@ -70,6 +70,7 @@ export interface ProductionEstimate {
 export interface DemoSessionState {
   sessionId: string;
   projectIdea: string;
+  scenarioId: string;
   currentPhase: Phase;
   currentStage: Stage;
   files: FileTreeNode[];
@@ -80,6 +81,26 @@ export interface DemoSessionState {
   result: DemoResult | null;
 }
 
+// Chat & Demo Step Types (Unit 1 리팩토링에서 DemoPage로부터 이동)
+
+import { AnimationSequence } from './animation';
+
+export interface ChatMessage {
+  id: string;
+  type: 'ai' | 'user' | 'system';
+  content: string;
+}
+
+export interface DemoStep {
+  phase: Phase;
+  stage: Stage;
+  label: string;
+  fileName: string;
+  fileContent: string;
+  chatSequence: ChatMessage[];
+  animationSequence?: AnimationSequence;
+}
+
 export interface DemoLog {
   id?: string;
   sessionId: string;
@@ -87,4 +108,5 @@ export interface DemoLog {
   completed: boolean;
   durationMs: number;
   timestamp: string;
+  industry?: string;
 }

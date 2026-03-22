@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useDemoSession } from '@/contexts/DemoSessionContext';
 import { Phase, Stage } from '@/types/demo';
@@ -9,11 +9,13 @@ interface OutputItem { id: string; name: string; }
 interface StageConfig { id: Stage; label: string; outputs: OutputItem[]; }
 interface PhaseConfig { id: Phase; label: string; stages: StageConfig[]; }
 
-export default function PhaseIndicator() {
+export default React.memo(PhaseIndicator);
+
+function PhaseIndicator() {
   const { state } = useDemoSession();
   const { currentPhase, currentStage, animationProgress } = state;
 
-  const phaseConfigs: PhaseConfig[] = [
+  const phaseConfigs: PhaseConfig[] = useMemo(() => [
     {
       id: 'INCEPTION', label: 'INCEPTION',
       stages: [
@@ -47,7 +49,7 @@ export default function PhaseIndicator() {
         ]},
       ],
     },
-  ];
+  ], []);
 
   const currentPhaseIndex = phaseConfigs.findIndex(p => p.id === currentPhase);
   const totalStages = phaseConfigs.reduce((acc, p) => acc + p.stages.length, 0);

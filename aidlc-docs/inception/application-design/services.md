@@ -1,306 +1,166 @@
-# AI-DLC Demo Showcase - Services
+# AI-DLC Demo Showcase - Services (Brownfield Update)
 
 ## 서비스 아키텍처 개요
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      Client (Browser)                        │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │              React Components                        │   │
-│  │   StartPage → DemoPage → ResultPage                 │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                           │                                  │
-│                           │ HTTP / SSE                       │
-│                           ▼                                  │
-├─────────────────────────────────────────────────────────────┤
-│                    Next.js API Routes                        │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐        │
-│  │ /api/demo/   │ │ /api/demo/   │ │  /api/log    │        │
-│  │    start     │ │   stream     │ │              │        │
-│  └──────┬───────┘ └──────┬───────┘ └──────┬───────┘        │
-│         │                │                │                  │
-│         ▼                ▼                ▼                  │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │                  Services Layer                      │   │
-│  │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐   │   │
-│  │  │ AIService   │ │ Estimate    │ │ LogService  │   │   │
-│  │  │             │ │ Service     │ │             │   │   │
-│  │  └──────┬──────┘ └─────────────┘ └──────┬──────┘   │   │
-│  │         │                               │          │   │
-│  └─────────┼───────────────────────────────┼──────────┘   │
-│            │                               │               │
-├────────────┼───────────────────────────────┼───────────────┤
-│            ▼                               ▼               │
-│     ┌─────────────┐                 ┌─────────────┐       │
-│     │  LLM API    │                 │  Log Store  │       │
-│     │  (External) │                 │  (File/DB)  │       │
-│     └─────────────┘                 └─────────────┘       │
-└─────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------------+
+|                      Client (Browser)                              |
+|  +-------------------------------------------------------------+ |
+|  |              React Components                                 | |
+|  |   StartPage -> DemoPage -> ResultPage    AdminPage            | |
+|  +------------------------------+------------------------------+ |
+|                                  |                                 |
+|     +----------------------------+----------------------------+   |
+|     |          Client-Side Services                            |   |
+|     |  ScenarioDetector | DemoStepGenerator | EstimateService  |   |
+|     |  useDemoProgress  | useRunStep        | useTranslation   |   |
+|     +----------------------------+----------------------------+   |
+|                                  |                                 |
+|                                  | HTTP                            |
+|                                  v                                 |
++-------------------------------------------------------------------+
+|                    Next.js API Routes                              |
+|  +--------------+ +------------------+ +--------------+           |
+|  | /api/demo/   | | /api/demo/       | |  /api/log    |           |
+|  |    start     | |   send-report    | |              |           |
+|  +------+-------+ +--------+---------+ +------+-------+           |
+|         |                   |                  |                   |
+|         v                   v                  v                   |
+|  +-------------------------------------------------------------+ |
+|  |                  Server-Side Services                         | |
+|  |  LogService (In-memory storage)                               | |
+|  +-------------------------------------------------------------+ |
++-------------------------------------------------------------------+
 ```
+
+### Text Alternative
+- Client-Side: ScenarioDetector, DemoStepGenerator, EstimateService, 커스텀 훅
+- API Routes: /api/demo/start, /api/demo/send-report, /api/log
+- Server-Side: LogService (In-memory)
+- 삭제됨: AIService, /api/demo/stream, /api/demo/estimate
 
 ---
 
-## 1. AIService
+## 1. ScenarioDetector (신규 - DemoPage에서 분리)
 
 ### 목적
-LLM API와 연동하여 AI-DLC 각 Phase/Stage의 콘텐츠를 동적으로 생성
+사용자 입력 키워드를 분석하여 산업별 시나리오를 감지
 
 ### 책임
-- Phase별 프롬프트 구성 및 관리
-- LLM API 스트리밍 호출
-- 응답 파싱 및 구조화
-- MVP 코드 및 AWS 아키텍처 생성
+- 키워드 매칭으로 8개 산업 시나리오 분류
+- 시나리오별 데이터 반환 (features, techStack, awsServices 등)
+- 시나리오 데이터 외부화 (확장 용이)
 
-### 구현 상세
-
-```typescript
-class AIService {
-  private llmClient: LLMClient;
-  
-  // Phase별 프롬프트 템플릿
-  private prompts = {
-    INCEPTION: {
-      requirements: (idea: string) => `
-        사용자가 "${idea}" 서비스를 만들고 싶어합니다.
-        이 서비스의 핵심 요구사항을 분석해주세요.
-        - 주요 기능 3-5개
-        - 사용자 유형
-        - 핵심 데이터 모델
-        간결하게 markdown 형식으로 작성해주세요.
-      `,
-      design: (idea: string) => `
-        "${idea}" 서비스의 애플리케이션 설계를 해주세요.
-        - 주요 컴포넌트 구조
-        - API 엔드포인트
-        - 데이터 흐름
-        간결하게 markdown 형식으로 작성해주세요.
-      `
-    },
-    CONSTRUCTION: {
-      code: (idea: string) => `
-        "${idea}" 서비스의 MVP React 컴포넌트를 생성해주세요.
-        - 간단한 UI 컴포넌트
-        - Tailwind CSS 스타일링
-        - 기본 인터랙션
-        실행 가능한 React 코드로 작성해주세요.
-      `
-    },
-    OPERATIONS: {
-      infrastructure: (idea: string) => `
-        "${idea}" 서비스의 AWS 아키텍처를 설계해주세요.
-        - 사용할 AWS 서비스 목록
-        - 서비스 간 연결 관계
-        - 간단한 배포 계획
-        JSON 형식으로 서비스 목록과 연결을 반환해주세요.
-      `
-    }
-  };
-
-  // 스트리밍 응답 생성
-  async *streamResponse(
-    projectIdea: string,
-    phase: Phase,
-    stage: Stage
-  ): AsyncGenerator<AIChunk> {
-    const prompt = this.getPrompt(projectIdea, phase, stage);
-    const stream = await this.llmClient.stream(prompt);
-    
-    for await (const chunk of stream) {
-      yield {
-        type: 'text',
-        content: chunk.text
-      };
-    }
-  }
-
-  // MVP 코드 생성
-  async generateMVPCode(projectIdea: string): Promise<string> {
-    const prompt = this.prompts.CONSTRUCTION.code(projectIdea);
-    const response = await this.llmClient.complete(prompt);
-    return this.extractCode(response);
-  }
-
-  // AWS 아키텍처 생성
-  async generateAWSArchitecture(projectIdea: string): Promise<AWSArchitecture> {
-    const prompt = this.prompts.OPERATIONS.infrastructure(projectIdea);
-    const response = await this.llmClient.complete(prompt);
-    return this.parseArchitecture(response);
-  }
-}
-```
-
-### 의존성
-- LLM API Client (OpenAI, Anthropic, Bedrock 등)
+### 위치
+- `src/utils/scenarioDetector.ts` - 감지 로직
+- `src/data/scenarios.ts` - 시나리오 데이터 (외부화)
 
 ---
 
-## 2. EstimateService
+## 2. DemoStepGenerator (신규 - DemoPage에서 분리)
 
 ### 목적
-프로젝트 복잡도를 분석하여 Production 예상 일정/인력 정보 계산
+감지된 시나리오를 기반으로 7개 데모 단계를 생성
 
 ### 책임
-- 생성된 콘텐츠 기반 복잡도 분석
+- 단계별 chatSequence 생성
+- 단계별 fileContent 생성
+- [NEW] 단계별 animationSequence 생성 (마우스 이동, 클릭, 타이핑)
+
+### 위치
+- `src/utils/demoStepGenerator.ts`
+
+---
+
+## 3. EstimateService (기존 유지)
+
+### 목적
+프로젝트 아이디어의 키워드를 분석하여 개발 기간, 팀 구성, 비용을 산출
+
+### 책임
+- 복잡도 분석 (키워드 기반)
+- 개발 일수 계산
+- AI 절감 효과 산출
 - 팀 구성 추천
-- 예상 기간 계산
-- AI 기반 동적 추정
 
-### 구현 상세
-
-```typescript
-class EstimateService {
-  private aiService: AIService;
-
-  // Production 예상 정보 계산
-  async calculateEstimate(
-    projectIdea: string,
-    generatedContent: GeneratedContent
-  ): Promise<ProductionEstimate> {
-    // AI를 통한 동적 추정
-    const prompt = `
-      다음 프로젝트의 Production 개발 예상 정보를 분석해주세요:
-      
-      프로젝트: ${projectIdea}
-      생성된 요구사항: ${generatedContent.requirements}
-      생성된 설계: ${generatedContent.design}
-      
-      다음 형식으로 JSON 응답해주세요:
-      {
-        "traditionalDays": 예상 개발 일수 (숫자),
-        "teamComposition": [
-          { "role": "직군명", "count": 인원수, "reason": "필요 이유" }
-        ],
-        "estimatedDuration": "예상 기간 (예: 약 3주)",
-        "estimatedTeamSize": 총 인원수
-      }
-    `;
-
-    const response = await this.aiService.complete(prompt);
-    return JSON.parse(response);
-  }
-
-  // 복잡도 분석 (보조)
-  analyzeComplexity(content: GeneratedContent): ComplexityScore {
-    const factors = {
-      featureCount: this.countFeatures(content.requirements),
-      componentCount: this.countComponents(content.design),
-      integrationPoints: this.countIntegrations(content.design)
-    };
-
-    return {
-      score: this.calculateScore(factors),
-      level: this.determineLevel(factors),
-      factors
-    };
-  }
-}
-```
-
-### 의존성
-- AIService (동적 추정용)
+### 위치
+- `src/services/EstimateService.ts` (변경 없음)
 
 ---
 
-## 3. LogService
+## 4. LogService (수정 - 실제 연동)
 
 ### 목적
-방문객 입력 데이터를 저장하고 분석용 통계 제공
+데모 세션 로그를 서버에 기록하고 통계 제공
 
 ### 책임
-- 로그 데이터 저장
-- 로그 조회 및 필터링
-- 통계 집계
+- 세션 시작/완료 로그 기록
+- 통계 조회 (관리자 대시보드용)
+- [NEW] StartPage에서 세션 시작 시 실제 호출
+- [NEW] ResultPage에서 세션 완료 시 실제 호출
+- [NEW] AdminPage에서 통계 조회
 
-### 구현 상세
+### 위치
+- `src/services/LogService.ts` (클라이언트)
+- `src/app/api/log/route.ts` (서버)
 
-```typescript
-class LogService {
-  private logStore: LogStore; // File or DB
-
-  // 로그 저장
-  async saveLog(log: DemoLog): Promise<void> {
-    const enrichedLog = {
-      ...log,
-      timestamp: new Date().toISOString(),
-      id: generateId()
-    };
-    
-    await this.logStore.append(enrichedLog);
-  }
-
-  // 로그 조회
-  async getLogs(filter?: LogFilter): Promise<DemoLog[]> {
-    const logs = await this.logStore.readAll();
-    
-    if (!filter) return logs;
-    
-    return logs.filter(log => {
-      if (filter.startDate && log.timestamp < filter.startDate) return false;
-      if (filter.endDate && log.timestamp > filter.endDate) return false;
-      if (filter.completed !== undefined && log.completed !== filter.completed) return false;
-      return true;
-    });
-  }
-
-  // 통계 조회
-  async getStatistics(): Promise<LogStatistics> {
-    const logs = await this.logStore.readAll();
-    
-    return {
-      totalSessions: logs.length,
-      completedSessions: logs.filter(l => l.completed).length,
-      completionRate: this.calculateCompletionRate(logs),
-      averageDuration: this.calculateAverageDuration(logs),
-      popularKeywords: this.extractPopularKeywords(logs),
-      dailyStats: this.groupByDate(logs)
-    };
-  }
-}
-```
-
-### 저장 방식 옵션
-1. **파일 기반**: JSON 파일로 로컬 저장 (간단, MVP용)
-2. **DB 기반**: SQLite 또는 외부 DB (확장성)
+### 서버 측 저장
+- In-memory 배열 (현재 - 서버 재시작 시 초기화)
+- 향후 DB 연동 가능한 인터페이스 유지
 
 ---
 
-## 서비스 간 상호작용
+## 5. i18n Service (신규)
+
+### 목적
+한국어/영어 다국어 지원
+
+### 책임
+- 번역 키-값 관리
+- 현재 언어 상태 관리 (localStorage 영속화)
+- useTranslation 훅 제공
+
+### 위치
+- `src/i18n/ko.ts` - 한국어 번역
+- `src/i18n/en.ts` - 영어 번역
+- `src/i18n/index.ts` - useTranslation 훅
+- `src/contexts/LanguageContext.tsx` - 언어 상태 Context
+
+---
+
+## 6. 삭제 대상
+
+### AIService (삭제)
+- **사유**: DemoPage가 클라이언트 사이드에서 직접 콘텐츠 생성 (generateDemoSteps). 실제 LLM 호출 없음.
+- **향후**: LLM 연동 시 새로 생성
+
+---
+
+## 서비스 간 상호작용 (업데이트)
 
 ### 데모 플로우 시퀀스
 
 ```
-1. 사용자 입력 → /api/demo/start
-   └─ LogService.saveLog() (세션 시작 기록)
+1. 사용자 입력 -> StartPage
+   +-> POST /api/demo/start (세션 ID 생성)
+   +-> LogService.logStart() -> POST /api/log (세션 시작 기록)  [NEW]
+   +-> router.push(/demo?idea=...)
 
-2. AI 스트리밍 → /api/demo/stream
-   └─ AIService.streamResponse() (Phase별 콘텐츠 생성)
-   
-3. 결과 생성 → /api/demo/estimate
-   └─ EstimateService.calculateEstimate() (예상 정보 계산)
-   └─ AIService.generateMVPCode() (MVP 코드 생성)
-   └─ AIService.generateAWSArchitecture() (아키텍처 생성)
+2. 데모 진행 -> DemoPage
+   +-> ScenarioDetector.detectScenario(idea)  [REFACTORED]
+   +-> DemoStepGenerator.generateDemoSteps(idea)  [REFACTORED]
+   +-> useRunStep.runStep(0)  [REFACTORED]
+       +-> AnimationOrchestrator.executeSequence()  [NEW]
+       +-> MousePointer.moveTo() / click()  [NEW]
+       +-> 채팅 메시지 시뮬레이션
+       +-> 파일 생성 + 에디터 콘텐츠
 
-4. 데모 완료 → /api/log
-   └─ LogService.saveLog() (완료 기록)
-```
+3. 결과 조회 -> ResultPage
+   +-> EstimateService.calculateEstimate(idea)
+   +-> LogService.logComplete() -> POST /api/log (완료 기록)  [NEW]
+   +-> 6개 탭 렌더링
 
----
-
-## 환경 설정
-
-```typescript
-// 서비스 설정
-interface ServiceConfig {
-  ai: {
-    provider: 'openai' | 'anthropic' | 'bedrock';
-    apiKey: string;
-    model: string;
-    maxTokens: number;
-  };
-  log: {
-    storage: 'file' | 'database';
-    filePath?: string;
-    dbConnection?: string;
-  };
-}
+4. 관리자 -> AdminPage  [NEW]
+   +-> GET /api/log (통계 조회)
+   +-> 차트/테이블 렌더링
 ```

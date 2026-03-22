@@ -45,6 +45,7 @@ export interface LogRequest {
   projectIdea: string;
   completed: boolean;
   durationMs: number;
+  industry?: string;
 }
 
 export interface LogResponse {
@@ -58,4 +59,27 @@ export interface LogStatistics {
   completionRate: number;
   averageDuration: number;
   popularKeywords: { keyword: string; count: number }[];
+}
+
+
+// Unified Error Response
+export interface ApiErrorResponse {
+  success: false;
+  message: string;
+}
+
+export interface IndustryDistribution {
+  industry: string;
+  count: number;
+  percentage: number;
+}
+
+export interface SessionTrend {
+  hour: string;
+  count: number;
+}
+
+export interface PopularIdea {
+  idea: string;
+  count: number;
 }

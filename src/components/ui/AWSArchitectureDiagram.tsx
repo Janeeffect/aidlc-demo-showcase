@@ -5,9 +5,300 @@ import { motion } from 'framer-motion';
 
 interface AWSArchitectureDiagramProps {
   projectIdea: string;
+  scenarioId?: string;
 }
 
-function generateMermaidDiagram(idea: string): { diagram: string; description: string; services: string[] } {
+const SCENARIO_ARCHITECTURE: Record<string, { diagram: string; description: string; services: string[] }> = {
+  ecommerce: {
+    diagram: `flowchart LR
+    subgraph Client["클라이언트"]
+        U["고객"]
+    end
+    subgraph Edge["엣지 레이어"]
+        R53["Route 53"]
+        CF["CloudFront"]
+        WAF["WAF"]
+    end
+    subgraph API["API 레이어"]
+        APIGW["API Gateway"]
+        COG["Cognito<br/>인증"]
+    end
+    subgraph Compute["컴퓨팅"]
+        L1["Lambda<br/>주문 처리"]
+        SF["Step Functions<br/>워크플로우"]
+    end
+    subgraph Data["데이터 레이어"]
+        DDB["DynamoDB<br/>주문 데이터"]
+        S3["S3<br/>상품 이미지"]
+        EC["ElastiCache<br/>상품 캐시"]
+    end
+    subgraph Queue["메시징"]
+        SQS["SQS<br/>주문 큐"]
+    end
+    subgraph Security["보안"]
+        SM["Secrets Manager"]
+    end
+    subgraph Monitoring["모니터링"]
+        CW["CloudWatch<br/>메트릭/알람"]
+        XR["X-Ray<br/>분산 추적"]
+    end
+    U --> R53
+    R53 --> CF
+    WAF --> CF
+    CF --> APIGW
+    APIGW --> COG
+    APIGW --> L1
+    L1 --> DDB
+    L1 --> EC
+    L1 --> SQS
+    L1 --> SM
+    SF --> L1
+    CF --> S3
+    L1 --> CW
+    L1 --> XR
+    style Client fill:#e3f2fd
+    style Edge fill:#fff3e0
+    style API fill:#fce4ec
+    style Compute fill:#fff8e1
+    style Data fill:#e8f5e9
+    style Queue fill:#e1f5fe
+    style Security fill:#ffebee
+    style Monitoring fill:#f3e5f5`,
+    description: '안전한 결제 처리 이커머스 서버리스 아키텍처',
+    services: ['Route 53', 'CloudFront', 'WAF', 'API Gateway', 'Cognito', 'Lambda', 'Step Functions', 'DynamoDB', 'S3', 'ElastiCache', 'SQS', 'Secrets Manager', 'CloudWatch', 'X-Ray'],
+  },
+  fintech: {
+    diagram: `flowchart LR
+    subgraph Client["클라이언트"]
+        U["사용자"]
+    end
+    subgraph Edge["엣지 레이어"]
+        R53["Route 53"]
+        CF["CloudFront"]
+        WAF["WAF"]
+    end
+    subgraph API["API 레이어"]
+        APIGW["API Gateway"]
+        COG["Cognito<br/>인증"]
+    end
+    subgraph Compute["컴퓨팅"]
+        L1["Lambda<br/>송금 처리"]
+        SF["Step Functions<br/>워크플로우"]
+    end
+    subgraph Data["데이터 레이어"]
+        AUR["Aurora<br/>금융 데이터"]
+        DDB["DynamoDB<br/>거래 로그"]
+    end
+    subgraph Security["보안"]
+        KMS["KMS<br/>암호화"]
+        CT["CloudTrail<br/>감사"]
+    end
+    U --> R53
+    R53 --> CF
+    WAF --> CF
+    CF --> APIGW
+    APIGW --> COG
+    APIGW --> L1
+    L1 --> AUR
+    L1 --> DDB
+    L1 --> KMS
+    SF --> L1
+    L1 --> CT
+    style Client fill:#e3f2fd
+    style Edge fill:#fff3e0
+    style API fill:#fce4ec
+    style Compute fill:#fff8e1
+    style Data fill:#e8f5e9
+    style Security fill:#ffebee`,
+    description: '금융 보안 규정 준수 서버리스 아키텍처',
+    services: ['Route 53', 'CloudFront', 'WAF', 'API Gateway', 'Cognito', 'Lambda', 'Step Functions', 'Aurora', 'DynamoDB', 'KMS', 'CloudTrail'],
+  },
+  healthcare: {
+    diagram: `flowchart LR
+    subgraph Client["클라이언트"]
+        U["환자"]
+    end
+    subgraph Edge["엣지 레이어"]
+        R53["Route 53"]
+        CF["CloudFront"]
+        WAF["WAF"]
+    end
+    subgraph API["API 레이어"]
+        APIGW["API Gateway"]
+        COG["Cognito<br/>인증"]
+    end
+    subgraph Compute["컴퓨팅"]
+        L1["Lambda<br/>진료 관리"]
+        L2["Lambda<br/>처방 처리"]
+    end
+    subgraph Data["데이터 레이어"]
+        AUR["Aurora<br/>진료 기록"]
+        S3["S3<br/>의료 영상"]
+    end
+    subgraph Video["화상 진료"]
+        CHM["Chime SDK"]
+    end
+    subgraph Notification["알림"]
+        SES["SES<br/>이메일"]
+    end
+    U --> R53
+    R53 --> CF
+    WAF --> CF
+    CF --> APIGW
+    APIGW --> COG
+    APIGW --> L1
+    L1 --> AUR
+    L1 --> S3
+    L1 --> L2
+    L1 --> CHM
+    L2 --> SES
+    style Client fill:#e3f2fd
+    style Edge fill:#fff3e0
+    style API fill:#fce4ec
+    style Compute fill:#fff8e1
+    style Data fill:#e8f5e9
+    style Video fill:#e0f2f1
+    style Notification fill:#f3e5f5`,
+    description: '헬스케어 원격 진료 서버리스 아키텍처',
+    services: ['Route 53', 'CloudFront', 'WAF', 'API Gateway', 'Cognito', 'Lambda', 'Aurora', 'S3', 'Chime SDK', 'SES'],
+  },
+  education: {
+    diagram: `flowchart LR
+    subgraph Client["클라이언트"]
+        U["학습자"]
+    end
+    subgraph Edge["엣지 레이어"]
+        R53["Route 53"]
+        CF["CloudFront<br/>스트리밍"]
+        WAF["WAF"]
+    end
+    subgraph API["API 레이어"]
+        APIGW["API Gateway"]
+        COG["Cognito<br/>인증"]
+    end
+    subgraph Compute["컴퓨팅"]
+        L1["Lambda<br/>학습 관리"]
+    end
+    subgraph Data["데이터 레이어"]
+        DDB["DynamoDB<br/>학습 데이터"]
+        S3["S3<br/>강의 콘텐츠"]
+    end
+    subgraph Media["미디어"]
+        MC["MediaConvert<br/>인코딩"]
+    end
+    U --> R53
+    R53 --> CF
+    WAF --> CF
+    CF --> APIGW
+    CF --> S3
+    APIGW --> COG
+    APIGW --> L1
+    L1 --> DDB
+    S3 --> MC
+    style Client fill:#e3f2fd
+    style Edge fill:#fff3e0
+    style API fill:#fce4ec
+    style Compute fill:#fff8e1
+    style Data fill:#e8f5e9
+    style Media fill:#ede7f6`,
+    description: '대용량 영상 스트리밍 교육 플랫폼 아키텍처',
+    services: ['Route 53', 'CloudFront', 'WAF', 'API Gateway', 'Cognito', 'Lambda', 'DynamoDB', 'S3', 'MediaConvert'],
+  },
+  logistics: {
+    diagram: `flowchart LR
+    subgraph Client["클라이언트"]
+        U["고객"]
+    end
+    subgraph Edge["엣지 레이어"]
+        R53["Route 53"]
+        CF["CloudFront"]
+        WAF["WAF"]
+    end
+    subgraph API["API 레이어"]
+        APIGW["API Gateway"]
+    end
+    subgraph Compute["컴퓨팅"]
+        L1["Lambda<br/>배송 관리"]
+    end
+    subgraph Data["데이터 레이어"]
+        DDB["DynamoDB<br/>배송 데이터"]
+    end
+    subgraph Location["위치 서비스"]
+        LS["Location Service<br/>지도"]
+        IOT["IoT Core<br/>GPS"]
+    end
+    subgraph Notification["알림"]
+        SNS["SNS<br/>푸시 알림"]
+    end
+    U --> R53
+    R53 --> CF
+    WAF --> CF
+    CF --> APIGW
+    APIGW --> L1
+    L1 --> DDB
+    L1 --> LS
+    IOT --> L1
+    L1 --> SNS
+    style Client fill:#e3f2fd
+    style Edge fill:#fff3e0
+    style API fill:#fce4ec
+    style Compute fill:#fff8e1
+    style Data fill:#e8f5e9
+    style Location fill:#e0f2f1
+    style Notification fill:#f3e5f5`,
+    description: '실시간 배송 추적 물류 IoT 아키텍처',
+    services: ['Route 53', 'CloudFront', 'WAF', 'API Gateway', 'Lambda', 'DynamoDB', 'Location Service', 'IoT Core', 'SNS'],
+  },
+  saas: {
+    diagram: `flowchart LR
+    subgraph Client["클라이언트"]
+        U["팀원"]
+    end
+    subgraph Edge["엣지 레이어"]
+        R53["Route 53"]
+        CF["CloudFront"]
+        WAF["WAF"]
+    end
+    subgraph API["API 레이어"]
+        APIGW["API Gateway"]
+        COG["Cognito<br/>인증"]
+    end
+    subgraph Compute["컴퓨팅"]
+        L1["Lambda<br/>비즈니스 로직"]
+    end
+    subgraph Realtime["실시간"]
+        AS["AppSync<br/>실시간 동기화"]
+    end
+    subgraph Data["데이터 레이어"]
+        DDB["DynamoDB<br/>프로젝트 데이터"]
+        EC["ElastiCache<br/>캐시"]
+    end
+    U --> R53
+    R53 --> CF
+    WAF --> CF
+    CF --> APIGW
+    APIGW --> COG
+    APIGW --> L1
+    L1 --> DDB
+    L1 --> EC
+    AS --> L1
+    style Client fill:#e3f2fd
+    style Edge fill:#fff3e0
+    style API fill:#fce4ec
+    style Compute fill:#fff8e1
+    style Realtime fill:#e0f2f1
+    style Data fill:#e8f5e9`,
+    description: 'SaaS 실시간 협업 서버리스 아키텍처',
+    services: ['Route 53', 'CloudFront', 'WAF', 'API Gateway', 'Cognito', 'Lambda', 'AppSync', 'DynamoDB', 'ElastiCache'],
+  },
+};
+
+function generateMermaidDiagram(idea: string, scenarioId?: string): { diagram: string; description: string; services: string[] } {
+  // scenarioId 기반 직접 매핑 우선
+  if (scenarioId && SCENARIO_ARCHITECTURE[scenarioId]) {
+    return SCENARIO_ARCHITECTURE[scenarioId];
+  }
+
   const ideaLower = idea.toLowerCase();
   let diagram = '';
   let description = '';
@@ -270,8 +561,8 @@ function generateMermaidDiagram(idea: string): { diagram: string; description: s
   return { diagram, description, services };
 }
 
-export default function AWSArchitectureDiagram({ projectIdea }: AWSArchitectureDiagramProps) {
-  const { diagram, description, services } = useMemo(() => generateMermaidDiagram(projectIdea), [projectIdea]);
+export default function AWSArchitectureDiagram({ projectIdea, scenarioId }: AWSArchitectureDiagramProps) {
+  const { diagram, description, services } = useMemo(() => generateMermaidDiagram(projectIdea, scenarioId), [projectIdea, scenarioId]);
   const containerRef = useRef<HTMLDivElement>(null);
   const renderIdRef = useRef(0);
 
@@ -355,7 +646,16 @@ export default function AWSArchitectureDiagram({ projectIdea }: AWSArchitectureD
           ref={containerRef} 
           className="min-h-[300px] flex items-center justify-center"
         >
-          <div className="text-gray-500">다이어그램 로딩중...</div>
+          <div className="w-full space-y-4 animate-pulse">
+            <div className="h-6 bg-gray-200 rounded shimmer w-2/3 mx-auto" />
+            <div className="h-40 bg-gray-100 rounded shimmer" />
+            <div className="flex justify-center gap-3">
+              <div className="h-8 w-24 bg-gray-200 rounded shimmer" />
+              <div className="h-8 w-20 bg-gray-200 rounded shimmer" />
+              <div className="h-8 w-28 bg-gray-200 rounded shimmer" />
+            </div>
+            <div className="h-4 bg-gray-200 rounded shimmer w-1/2 mx-auto" />
+          </div>
         </div>
       </motion.div>
 

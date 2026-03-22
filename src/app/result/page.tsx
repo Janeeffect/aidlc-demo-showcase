@@ -3,32 +3,47 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 import MVPPreview from '@/components/ui/MVPPreview';
 import AWSArchitectureDiagram from '@/components/ui/AWSArchitectureDiagram';
 import BusinessWorkflowDiagram from '@/components/ui/BusinessWorkflowDiagram';
 import { calculateEstimate, ProjectEstimate } from '@/services/EstimateService';
+import { logService } from '@/services/LogService';
+import { useDemoSession } from '@/contexts/DemoSessionContext';
+import { useTranslation } from '@/i18n';
+import LanguageToggle from '@/components/ui/LanguageToggle';
 
 type TabType = 'mvp' | 'architecture' | 'workflow' | 'estimate' | 'aidlc' | 'kiro';
 
 function ResultPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { state: sessionState } = useDemoSession();
   const projectIdea = searchParams.get('idea') || '';
+  const scenarioId = searchParams.get('scenario') || undefined;
   const [estimate, setEstimate] = useState<ProjectEstimate | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('mvp');
   const [showEmailModal, setShowEmailModal] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (projectIdea) {
-      const result = calculateEstimate(projectIdea);
+      const result = calculateEstimate(projectIdea, scenarioId);
       setEstimate(result);
     }
-  }, [projectIdea]);
+  }, [projectIdea, scenarioId]);
+
+  useEffect(() => {
+    if (projectIdea && sessionState.sessionId) {
+      const durationMs = Date.now() - new Date(sessionState.startTime).getTime();
+      logService.logComplete(sessionState.sessionId, projectIdea, durationMs).catch(() => {});
+    }
+  }, [projectIdea, sessionState.sessionId, sessionState.startTime]);
 
   if (!projectIdea) {
     return (
       <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
-        <p className="text-[#b0b0c0]">프로젝트 아이디어가 없습니다</p>
+        <p className="text-[#b0b0c0]">{t('common.error.noIdea')}</p>
       </div>
     );
   }
@@ -45,36 +60,41 @@ function ResultPageContent() {
                 onClick={() => router.back()}
                 className="px-3 py-1.5 text-[#b0b0c0] hover:text-[#e4e4ed] hover:bg-[#1a1a25] rounded-md transition-all text-sm"
               >
-                ← 데모로 돌아가기
+                {t('result.backToDemo')}
               </button>
               <div className="w-px h-5 bg-[#2a2a3a]" />
               <button
                 onClick={() => router.push('/')}
                 className="px-3 py-1.5 text-[#b0b0c0] hover:text-[#e4e4ed] hover:bg-[#1a1a25] rounded-md transition-all text-sm"
               >
-                처음으로
+                {t('result.backToStart')}
               </button>
               <div className="w-px h-5 bg-[#2a2a3a]" />
               <KiroIcon size={28} />
-              <h1 className="text-xl font-semibold"><span className="kiro-gradient-text">AI-DLC</span> 완료</h1>
+              <h1 className="text-xl font-semibold"><span className="kiro-gradient-text">AI-DLC</span> {t('result.complete')}</h1>
             </div>
+            <LanguageToggle />
           </div>
           <p className="text-[#b0b0c0] text-sm mt-1 ml-[88px]">{projectIdea}</p>
         </div>
       </header>
 
       <div className="bg-[#12121a] border-b border-[#2a2a3a] relative z-10">
-        <div className="max-w-6xl mx-auto flex overflow-x-auto">
+        <div role="tablist" aria-label="결과 탭" className="max-w-6xl mx-auto flex overflow-x-auto">
           {[
-            { id: 'mvp', label: 'MVP 미리보기' },
-            { id: 'architecture', label: 'AWS 아키텍처' },
-            { id: 'workflow', label: '비즈니스 워크플로우' },
-            { id: 'estimate', label: '프로젝트 예상' },
-            { id: 'aidlc', label: 'AI-DLC 산출물' },
-            { id: 'kiro', label: 'Kiro 소개' },
+            { id: 'mvp', label: t('result.tabs.mvp') },
+            { id: 'architecture', label: t('result.tabs.architecture') },
+            { id: 'workflow', label: t('result.tabs.workflow') },
+            { id: 'estimate', label: t('result.tabs.estimate') },
+            { id: 'aidlc', label: t('result.tabs.aidlc') },
+            { id: 'kiro', label: t('result.tabs.kiro') },
           ].map((tab) => (
             <button
               key={tab.id}
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              aria-controls={`tabpanel-${tab.id}`}
+              id={`tab-${tab.id}`}
               onClick={() => setActiveTab(tab.id as TabType)}
               className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === tab.id
@@ -91,32 +111,32 @@ function ResultPageContent() {
       <main className="max-w-6xl mx-auto p-8 relative z-10">
         <AnimatePresence mode="wait">
           {activeTab === 'mvp' && (
-            <motion.div key="mvp" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <motion.div key="mvp" role="tabpanel" id="tabpanel-mvp" aria-labelledby="tab-mvp" tabIndex={0} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               <MVPPreview projectIdea={projectIdea} />
             </motion.div>
           )}
           {activeTab === 'architecture' && (
-            <motion.div key="arch" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <AWSArchitectureDiagram projectIdea={projectIdea} />
+            <motion.div key="arch" role="tabpanel" id="tabpanel-architecture" aria-labelledby="tab-architecture" tabIndex={0} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <AWSArchitectureDiagram projectIdea={projectIdea} scenarioId={scenarioId} />
             </motion.div>
           )}
           {activeTab === 'workflow' && (
-            <motion.div key="workflow" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <BusinessWorkflowDiagram projectIdea={projectIdea} />
+            <motion.div key="workflow" role="tabpanel" id="tabpanel-workflow" aria-labelledby="tab-workflow" tabIndex={0} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <BusinessWorkflowDiagram projectIdea={projectIdea} scenarioId={scenarioId} />
             </motion.div>
           )}
           {activeTab === 'estimate' && estimate && (
-            <motion.div key="estimate" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <motion.div key="estimate" role="tabpanel" id="tabpanel-estimate" aria-labelledby="tab-estimate" tabIndex={0} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               <EstimateTab estimate={estimate} />
             </motion.div>
           )}
           {activeTab === 'aidlc' && (
-            <motion.div key="aidlc" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <motion.div key="aidlc" role="tabpanel" id="tabpanel-aidlc" aria-labelledby="tab-aidlc" tabIndex={0} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               <AIDLCOutputsTab projectIdea={projectIdea} />
             </motion.div>
           )}
           {activeTab === 'kiro' && (
-            <motion.div key="kiro" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <motion.div key="kiro" role="tabpanel" id="tabpanel-kiro" aria-labelledby="tab-kiro" tabIndex={0} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               <KiroIntroTab />
             </motion.div>
           )}
@@ -127,13 +147,13 @@ function ResultPageContent() {
             onClick={() => router.push('/')}
             className="px-8 py-3 bg-gradient-to-r from-[#7c5cfc] to-[#4a9eff] text-white rounded-lg font-medium hover:from-[#6b4beb] hover:to-[#3a8eef] transition-all text-sm"
           >
-            다른 프로젝트 시도하기
+            {t('result.tryAnother')}
           </button>
           <button
             onClick={() => setShowEmailModal(true)}
             className="px-8 py-3 bg-[#1a1a25] text-[#e4e4ed] rounded-lg font-medium hover:bg-[#2a2a3a] border border-[#2a2a3a] transition-all text-sm"
           >
-            리포트 이메일로 받기
+            {t('result.emailReport')}
           </button>
         </div>
       </main>
@@ -151,79 +171,80 @@ function ResultPageContent() {
 
 function KiroIcon({ size = 20 }: { size?: number }) {
   return (
-    <img src="/kiro.jpg" alt="Kiro" width={size} height={size} className="rounded-sm object-contain" />
+    <Image src="/kiro.jpg" alt="Kiro AI 어시스턴트" width={size} height={size} className="rounded-sm object-contain" />
   );
 }
 
 function EstimateTab({ estimate }: { estimate: ProjectEstimate }) {
+  const { t, locale } = useTranslation();
   return (
     <div className="space-y-8">
       <div className="bg-gradient-to-r from-[#7c5cfc]/20 to-[#7c5cfc]/5 border border-[#7c5cfc]/30 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-[#7c5cfc] mb-4">AI-DLC 시간 절감 효과</h3>
+        <h3 className="text-lg font-semibold text-[#7c5cfc] mb-4">{t('result.estimate.aiSavings')}</h3>
         <div className="grid grid-cols-3 gap-6">
           <div>
-            <p className="text-3xl font-bold text-white">{estimate.aiSavedDays}일</p>
-            <p className="text-sm text-[#b0b0c0]">AI로 절감한 시간</p>
+            <p className="text-3xl font-bold text-white">{estimate.aiSavedDays}{t('result.estimate.days')}</p>
+            <p className="text-sm text-[#b0b0c0]">{t('result.estimate.savedDays')}</p>
           </div>
           <div>
             <p className="text-3xl font-bold text-white">{estimate.aiSavedPercentage}%</p>
-            <p className="text-sm text-[#b0b0c0]">개발 속도 향상</p>
+            <p className="text-sm text-[#b0b0c0]">{t('result.estimate.speedUp')}</p>
           </div>
           <div>
-            <p className="text-3xl font-bold text-white">~5분</p>
-            <p className="text-sm text-[#b0b0c0]">AI-DLC 소요 시간</p>
+            <p className="text-3xl font-bold text-white">{t('result.estimate.approxMinutes')}</p>
+            <p className="text-sm text-[#b0b0c0]">{t('result.estimate.demoTime')}</p>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-6">
         <div className="bg-[#12121a] rounded-lg p-6 border border-[#2a2a3a]">
-          <h3 className="text-lg font-semibold mb-4">개발 일정</h3>
+          <h3 className="text-lg font-semibold mb-4">{t('result.estimate.schedule')}</h3>
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <span className="text-[#b0b0c0]">예상 기간</span>
-              <span className="text-xl font-bold">{estimate.developmentDays}일</span>
+              <span className="text-[#b0b0c0]">{t('result.estimate.expectedDuration')}</span>
+              <span className="text-xl font-bold">{estimate.developmentDays}{t('result.estimate.days')}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-[#b0b0c0]">복잡도</span>
+              <span className="text-[#b0b0c0]">{t('result.estimate.complexity')}</span>
               <span className={`px-3 py-1 rounded text-sm font-medium ${
                 estimate.complexity === 'high' ? 'bg-red-500/20 text-red-400' :
                 estimate.complexity === 'medium' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-green-500/20 text-green-400'
               }`}>
-                {estimate.complexity === 'high' ? '높음' : estimate.complexity === 'medium' ? '중간' : '낮음'}
+                {estimate.complexity === 'high' ? t('result.estimate.complexityHigh') : estimate.complexity === 'medium' ? t('result.estimate.complexityMedium') : t('result.estimate.complexityLow')}
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-[#b0b0c0]">팀 규모</span>
-              <span className="text-xl font-bold">{estimate.teamSize}명</span>
+              <span className="text-[#b0b0c0]">{t('result.estimate.teamSize')}</span>
+              <span className="text-xl font-bold">{estimate.teamSize}{t('result.estimate.persons')}</span>
             </div>
           </div>
         </div>
 
         <div className="bg-[#12121a] rounded-lg p-6 border border-[#2a2a3a]">
-          <h3 className="text-lg font-semibold mb-4">비용 예상</h3>
+          <h3 className="text-lg font-semibold mb-4">{t('result.estimate.costEstimate')}</h3>
           <div className="space-y-4">
             <div>
-              <p className="text-[#b0b0c0] text-sm mb-1">개발 비용</p>
+              <p className="text-[#b0b0c0] text-sm mb-1">{t('result.estimate.devCost')}</p>
               <p className="text-xl font-bold">${estimate.estimatedCost.development.min.toLocaleString()} - ${estimate.estimatedCost.development.max.toLocaleString()}</p>
             </div>
             <div>
-              <p className="text-[#b0b0c0] text-sm mb-1">인프라 비용</p>
-              <p className="text-xl font-bold">${estimate.estimatedCost.monthly.min} - ${estimate.estimatedCost.monthly.max}/월</p>
+              <p className="text-[#b0b0c0] text-sm mb-1">{t('result.estimate.infraCost')}</p>
+              <p className="text-xl font-bold">${estimate.estimatedCost.monthly.min} - ${estimate.estimatedCost.monthly.max}{t('result.estimate.monthly')}</p>
             </div>
           </div>
         </div>
       </div>
 
       <div className="bg-[#12121a] rounded-lg p-6 border border-[#2a2a3a]">
-        <h3 className="text-lg font-semibold mb-4">권장 팀 구성</h3>
+        <h3 className="text-lg font-semibold mb-4">{t('result.estimate.teamComposition')}</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {estimate.teamComposition.map((member, index) => (
             <div key={index} className="bg-[#0a0a0f] rounded-lg p-4">
-              <p className="font-medium">{translateRole(member.role)}</p>
+              <p className="font-medium">{translateRole(member.role, locale)}</p>
               <div className="flex items-center gap-2 mt-2">
                 <span className="text-2xl font-bold text-[#7c5cfc]">{member.count}</span>
-                <span className="text-sm text-[#b0b0c0]">{translateSeniority(member.seniorityLevel)}</span>
+                <span className="text-sm text-[#b0b0c0]">{translateSeniority(member.seniorityLevel, locale)}</span>
               </div>
             </div>
           ))}
@@ -231,7 +252,7 @@ function EstimateTab({ estimate }: { estimate: ProjectEstimate }) {
       </div>
 
       <div className="bg-[#12121a] rounded-lg p-6 border border-[#2a2a3a]">
-        <h3 className="text-lg font-semibold mb-4">기술 스택</h3>
+        <h3 className="text-lg font-semibold mb-4">{t('result.estimate.techStack')}</h3>
         <div className="flex flex-wrap gap-2">
           {estimate.techStack.map((tech, index) => (
             <span key={index} className="px-3 py-1.5 bg-[#0a0a0f] rounded-full text-sm border border-[#2a2a3a]">{tech}</span>
@@ -242,8 +263,9 @@ function EstimateTab({ estimate }: { estimate: ProjectEstimate }) {
   );
 }
 
-function translateRole(role: string): string {
-  const t: Record<string, string> = {
+function translateRole(role: string, locale: string): string {
+  if (locale === 'en') return role;
+  const map: Record<string, string> = {
     'Full-stack Developer': '풀스택 개발자',
     'Frontend Developer': '프론트엔드 개발자',
     'Backend Developer': '백엔드 개발자',
@@ -252,20 +274,22 @@ function translateRole(role: string): string {
     'DevOps Engineer': 'DevOps 엔지니어',
     'Tech Lead': '기술 리드',
   };
-  return t[role] || role;
+  return map[role] || role;
 }
 
-function translateSeniority(level: string): string {
-  const t: Record<string, string> = {
+function translateSeniority(level: string, locale: string): string {
+  if (locale === 'en') return level;
+  const map: Record<string, string> = {
     'Junior': '주니어',
     'Mid-level': '미드레벨',
     'Senior': '시니어',
   };
-  return t[level] || level;
+  return map[level] || level;
 }
 
 function AIDLCOutputsTab({ projectIdea }: { projectIdea: string }) {
   const [selectedOutput, setSelectedOutput] = useState<string | null>(null);
+  const { t } = useTranslation();
 
   const outputs: Record<string, { name: string; phase: string; content: string }> = {
     'requirements.md': {
@@ -304,8 +328,8 @@ function AIDLCOutputsTab({ projectIdea }: { projectIdea: string }) {
   return (
     <div className="space-y-6">
       <div className="text-center mb-8">
-        <h2 className="text-2xl font-semibold mb-2">AI-DLC 산출물</h2>
-        <p className="text-[#b0b0c0]">클릭하여 AI가 생성한 산출물을 확인하세요</p>
+        <h2 className="text-2xl font-semibold mb-2">{t('result.aidlcOutputs.title')}</h2>
+        <p className="text-[#b0b0c0]">{t('result.aidlcOutputs.desc')}</p>
       </div>
 
       <div className="grid grid-cols-3 gap-6">
@@ -357,6 +381,7 @@ function AIDLCOutputsTab({ projectIdea }: { projectIdea: string }) {
 }
 
 function KiroIntroTab() {
+  const { t } = useTranslation();
   return (
     <div className="space-y-8">
       <div className="text-center mb-8">
@@ -364,77 +389,62 @@ function KiroIntroTab() {
           <KiroIcon size={48} />
           <h2 className="text-3xl font-semibold">Kiro</h2>
         </div>
-        <p className="text-[#b0b0c0]">AWS의 AI 기반 통합 개발 환경</p>
+        <p className="text-[#b0b0c0]">{t('result.kiro.subtitle')}</p>
       </div>
 
       <div className="bg-gradient-to-r from-[#7c5cfc]/20 to-[#7c5cfc]/5 border border-[#7c5cfc]/30 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-[#7c5cfc] mb-4">구독 플랜</h3>
+        <h3 className="text-lg font-semibold text-[#7c5cfc] mb-4">{t('result.kiro.plans')}</h3>
         <div className="grid grid-cols-2 gap-6">
           <div className="bg-[#0a0a0f] rounded-lg p-4">
-            <p className="text-2xl font-bold text-white">무료</p>
-            <p className="text-sm text-[#b0b0c0] mt-1">기본 기능</p>
+            <p className="text-2xl font-bold text-white">{t('result.kiro.free')}</p>
+            <p className="text-sm text-[#b0b0c0] mt-1">{t('result.kiro.freePlan')}</p>
             <ul className="mt-3 space-y-1 text-sm text-[#e4e4ed]">
-              <li>- 월 50회 AI 요청</li>
-              <li>- 기본 코드 생성</li>
-              <li>- 커뮤니티 지원</li>
+              <li>- {t('result.kiro.freeFeatures.0')}</li>
+              <li>- {t('result.kiro.freeFeatures.1')}</li>
+              <li>- {t('result.kiro.freeFeatures.2')}</li>
             </ul>
           </div>
           <div className="bg-[#0a0a0f] rounded-lg p-4 border border-[#7c5cfc]">
-            <p className="text-2xl font-bold text-[#7c5cfc]">$19/월</p>
-            <p className="text-sm text-[#b0b0c0] mt-1">Pro 플랜</p>
+            <p className="text-2xl font-bold text-[#7c5cfc]">{t('result.kiro.pro')}</p>
+            <p className="text-sm text-[#b0b0c0] mt-1">{t('result.kiro.proPlan')}</p>
             <ul className="mt-3 space-y-1 text-sm text-[#e4e4ed]">
-              <li>- 무제한 AI 요청</li>
-              <li>- AI-DLC 전체 기능</li>
-              <li>- 우선 지원</li>
+              <li>- {t('result.kiro.proFeatures.0')}</li>
+              <li>- {t('result.kiro.proFeatures.1')}</li>
+              <li>- {t('result.kiro.proFeatures.2')}</li>
             </ul>
           </div>
         </div>
       </div>
 
       <div className="bg-[#12121a] rounded-lg p-6 border border-[#2a2a3a]">
-        <h3 className="text-lg font-semibold mb-4">Kiro만의 특장점</h3>
+        <h3 className="text-lg font-semibold mb-4">{t('result.kiro.features')}</h3>
         <div className="grid grid-cols-2 gap-4">
-          {[
-            { title: 'AWS Knowledge Base 연동', desc: 'AWS 공식 문서와 베스트 프랙티스가 기본 탑재되어 아키텍처 설계가 수월합니다' },
-            { title: '원클릭 AWS 배포', desc: 'CloudFormation/CDK 템플릿 자동 생성으로 즉시 배포 가능합니다' },
-            { title: '코드 학습 불필요', desc: '기업 코드로 AI 모델 학습을 하지 않아 안전합니다' },
-            { title: '엔터프라이즈 보안', desc: 'AWS 보안 원칙 준수, SOC 2, ISO 27001 인증' },
-          ].map((item, i) => (
+          {[0, 1, 2, 3].map((i) => (
             <div key={i} className="bg-[#0a0a0f] rounded-lg p-4">
-              <p className="font-medium text-[#7c5cfc] mb-2">{item.title}</p>
-              <p className="text-sm text-[#b0b0c0]">{item.desc}</p>
+              <p className="font-medium text-[#7c5cfc] mb-2">{t(`result.kiro.featureItems.${i}.title`)}</p>
+              <p className="text-sm text-[#b0b0c0]">{t(`result.kiro.featureItems.${i}.desc`)}</p>
             </div>
           ))}
         </div>
       </div>
 
       <div className="bg-[#12121a] rounded-lg p-6 border border-[#2a2a3a]">
-        <h3 className="text-lg font-semibold mb-4">다른 AI 에디터와 비교</h3>
+        <h3 className="text-lg font-semibold mb-4">{t('result.kiro.comparison')}</h3>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[#2a2a3a]">
-              <th className="text-left py-3 px-4 text-[#b0b0c0]">기능</th>
-              <th className="text-center py-3 px-4 text-[#7c5cfc]">Kiro</th>
-              <th className="text-center py-3 px-4 text-[#b0b0c0]">기존 AI 에디터</th>
+              <th className="text-left py-3 px-4 text-[#b0b0c0]">{t('result.kiro.comparisonHeaders.feature')}</th>
+              <th className="text-center py-3 px-4 text-[#7c5cfc]">{t('result.kiro.comparisonHeaders.kiro')}</th>
+              <th className="text-center py-3 px-4 text-[#b0b0c0]">{t('result.kiro.comparisonHeaders.others')}</th>
             </tr>
           </thead>
           <tbody>
-            {[
-              { feature: '코드 학습 불필요 (보안)', kiro: true, others: false },
-              { feature: '기업 데이터 안전 보호', kiro: true, others: false },
-              { feature: 'AWS Knowledge Base 탑재', kiro: true, others: false },
-              { feature: 'AWS 서비스 통합', kiro: true, others: false },
-              { feature: '체계적 개발 방법론 (AI-DLC)', kiro: true, others: false },
-              { feature: '자동 인프라 설계/배포', kiro: true, others: false },
-              { feature: '자동 문서화', kiro: true, others: 'partial' as const },
-            ].map((row, i) => (
+            {[0, 1, 2, 3, 4, 5, 6].map((i) => (
               <tr key={i} className="border-b border-[#2a2a3a]/50">
-                <td className="py-3 px-4 text-[#e4e4ed]">{row.feature}</td>
+                <td className="py-3 px-4 text-[#e4e4ed]">{t(`result.kiro.comparisonItems.${i}`)}</td>
                 <td className="text-center py-3 px-4"><span className="text-[#4a9eff]">&#10003;</span></td>
                 <td className="text-center py-3 px-4">
-                  {row.others === true ? <span className="text-[#4a9eff]">&#10003;</span> :
-                   row.others === 'partial' ? <span className="text-yellow-400">-</span> :
-                   <span className="text-red-400">&#10007;</span>}
+                  {i === 6 ? <span className="text-yellow-400">-</span> : <span className="text-red-400">&#10007;</span>}
                 </td>
               </tr>
             ))}
@@ -443,17 +453,12 @@ function KiroIntroTab() {
       </div>
 
       <div className="bg-[#12121a] rounded-lg p-6 border border-[#4a9eff]">
-        <h3 className="text-lg font-semibold mb-4 text-[#4a9eff]">보안 및 프라이버시</h3>
+        <h3 className="text-lg font-semibold mb-4 text-[#4a9eff]">{t('result.kiro.security')}</h3>
         <div className="grid grid-cols-2 gap-4">
-          {[
-            { title: '코드 학습 불필요', desc: '사용자의 코드로 AI 모델 학습을 하지 않습니다' },
-            { title: '데이터 격리', desc: '기업 데이터는 안전하게 격리되어 보호됩니다' },
-            { title: 'AWS 보안 원칙', desc: 'AWS의 인프라와 보안 원칙 준수' },
-            { title: '규정 준수', desc: 'SOC 2, ISO 27001 등 주요 규정 준수' },
-          ].map((item, i) => (
+          {[0, 1, 2, 3].map((i) => (
             <div key={i} className="bg-[#0a0a0f] rounded-lg p-4">
-              <p className="font-medium text-[#4a9eff]">{item.title}</p>
-              <p className="text-sm text-[#b0b0c0] mt-1">{item.desc}</p>
+              <p className="font-medium text-[#4a9eff]">{t(`result.kiro.securityItems.${i}.title`)}</p>
+              <p className="text-sm text-[#b0b0c0] mt-1">{t(`result.kiro.securityItems.${i}.desc`)}</p>
             </div>
           ))}
         </div>
@@ -462,7 +467,7 @@ function KiroIntroTab() {
       <div className="text-center">
         <a href="https://kiro.dev" target="_blank" rel="noopener noreferrer"
           className="inline-block px-8 py-3 bg-gradient-to-r from-[#7c5cfc] to-[#4a9eff] text-white rounded-lg font-medium hover:from-[#6b4beb] hover:to-[#3a8eef] transition-all">
-          Kiro 시작하기
+          {t('result.kiro.getStarted')}
         </a>
       </div>
     </div>
@@ -473,10 +478,13 @@ function EmailReportModal({ projectIdea, estimate, onClose }: { projectIdea: str
   const [formData, setFormData] = useState({ email: '', name: '', company: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const { t } = useTranslation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setErrorMessage('');
     try {
       const response = await fetch('/api/demo/send-report', {
         method: 'POST',
@@ -492,6 +500,7 @@ function EmailReportModal({ projectIdea, estimate, onClose }: { projectIdea: str
         setIsSuccess(true);
       }
     } catch (error) {
+      setErrorMessage(t('common.error.sendFailed'));
       console.error('Failed to send report:', error);
     } finally {
       setIsSubmitting(false);
@@ -508,9 +517,9 @@ function EmailReportModal({ projectIdea, estimate, onClose }: { projectIdea: str
           onClick={e => e.stopPropagation()}
         >
           <div className="w-16 h-16 bg-[#4a9eff] rounded-full flex items-center justify-center text-white text-2xl mx-auto mb-4">&#10003;</div>
-          <h3 className="text-xl font-semibold text-white mb-2">전송 완료</h3>
-          <p className="text-[#b0b0c0] mb-6">리포트가 {formData.email}로 전송되었습니다</p>
-          <button onClick={onClose} className="px-6 py-2 bg-[#7c5cfc] text-white rounded-lg">확인</button>
+          <h3 className="text-xl font-semibold text-white mb-2">{t('result.email.successTitle')}</h3>
+          <p className="text-[#b0b0c0] mb-6">{t('result.email.successDesc').replace('{email}', formData.email)}</p>
+          <button onClick={onClose} className="px-6 py-2 bg-[#7c5cfc] text-white rounded-lg">{t('common.confirm')}</button>
         </motion.div>
       </div>
     );
@@ -525,56 +534,59 @@ function EmailReportModal({ projectIdea, estimate, onClose }: { projectIdea: str
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-white">리포트 이메일로 받기</h3>
+          <h3 className="text-lg font-semibold text-white">{t('result.email.title')}</h3>
           <button onClick={onClose} className="text-[#b0b0c0] hover:text-white">x</button>
         </div>
 
         <p className="text-sm text-[#b0b0c0] mb-4">
-          AI-DLC 결과 리포트를 PDF 형태로 이메일로 받아보세요. 프로젝트 산출물, AWS 아키텍처, 예상 비용 등이 포함됩니다.
+          {t('result.email.desc')}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {errorMessage && (
+            <p role="alert" className="text-red-400 text-sm bg-red-400/10 p-3 rounded-lg">{errorMessage}</p>
+          )}
           <div>
-            <label className="block text-sm text-[#e4e4ed] mb-1">이메일 주소 *</label>
+            <label className="block text-sm text-[#e4e4ed] mb-1">{t('result.email.emailLabel')}</label>
             <input
               type="email"
               required
               value={formData.email}
               onChange={e => setFormData({ ...formData, email: e.target.value })}
               className="w-full bg-[#0a0a0f] text-white p-3 rounded-lg border border-[#2a2a3a] focus:border-[#7c5cfc] focus:outline-none"
-              placeholder="email@company.com"
+              placeholder={t('result.email.emailPlaceholder')}
             />
           </div>
           <div>
-            <label className="block text-sm text-[#e4e4ed] mb-1">이름 *</label>
+            <label className="block text-sm text-[#e4e4ed] mb-1">{t('result.email.nameLabel')}</label>
             <input
               type="text"
               required
               value={formData.name}
               onChange={e => setFormData({ ...formData, name: e.target.value })}
               className="w-full bg-[#0a0a0f] text-white p-3 rounded-lg border border-[#2a2a3a] focus:border-[#7c5cfc] focus:outline-none"
-              placeholder="홍길동"
+              placeholder={t('result.email.namePlaceholder')}
             />
           </div>
           <div>
-            <label className="block text-sm text-[#e4e4ed] mb-1">회사명 *</label>
+            <label className="block text-sm text-[#e4e4ed] mb-1">{t('result.email.companyLabel')}</label>
             <input
               type="text"
               required
               value={formData.company}
               onChange={e => setFormData({ ...formData, company: e.target.value })}
               className="w-full bg-[#0a0a0f] text-white p-3 rounded-lg border border-[#2a2a3a] focus:border-[#7c5cfc] focus:outline-none"
-              placeholder="회사명"
+              placeholder={t('result.email.companyPlaceholder')}
             />
           </div>
 
           <div className="bg-[#0a0a0f] rounded-lg p-4 text-sm">
-            <p className="text-[#7c5cfc] font-medium mb-2">리포트에 포함되는 내용:</p>
+            <p className="text-[#7c5cfc] font-medium mb-2">{t('result.email.reportIncludes')}</p>
             <ul className="text-[#b0b0c0] space-y-1">
-              <li>- 프로젝트 요구사항 정의서</li>
-              <li>- AWS 아키텍처 설계</li>
-              <li>- 예상 개발 기간 및 비용</li>
-              <li>- Kiro 소개 및 장점</li>
+              <li>- {t('result.email.reportItems.0')}</li>
+              <li>- {t('result.email.reportItems.1')}</li>
+              <li>- {t('result.email.reportItems.2')}</li>
+              <li>- {t('result.email.reportItems.3')}</li>
             </ul>
           </div>
 
@@ -583,7 +595,7 @@ function EmailReportModal({ projectIdea, estimate, onClose }: { projectIdea: str
             disabled={isSubmitting}
             className="w-full bg-gradient-to-r from-[#7c5cfc] to-[#4a9eff] text-white py-3 rounded-lg font-medium hover:from-[#6b4beb] hover:to-[#3a8eef] disabled:opacity-50 transition-all"
           >
-            {isSubmitting ? '전송 중...' : '리포트 받기'}
+            {isSubmitting ? t('result.email.submitting') : t('result.email.submitButton')}
           </button>
         </form>
       </motion.div>
@@ -595,7 +607,7 @@ export default function ResultPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
-        <div className="text-[#e4e4ed]">결과 로딩 중...</div>
+        <div className="text-[#e4e4ed]">Loading...</div>
       </div>
     }>
       <ResultPageContent />

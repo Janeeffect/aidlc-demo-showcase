@@ -14,6 +14,7 @@ import {
 const initialState: DemoSessionState = {
   sessionId: '',
   projectIdea: '',
+  scenarioId: '',
   currentPhase: 'INCEPTION',
   currentStage: 'requirements',
   files: [],
@@ -29,6 +30,7 @@ type Action =
   | { type: 'INIT_SESSION'; payload: { projectIdea: string } }
   | { type: 'SET_PHASE'; payload: Phase }
   | { type: 'SET_STAGE'; payload: Stage }
+  | { type: 'SET_SCENARIO_ID'; payload: string }
   | { type: 'ADD_FILE'; payload: FileTreeNode }
   | { type: 'UPDATE_FILE'; payload: { path: string; updates: Partial<FileTreeNode> } }
   | { type: 'ADD_AI_RESPONSE'; payload: AIResponse }
@@ -62,6 +64,9 @@ function demoReducer(state: DemoSessionState, action: Action): DemoSessionState 
 
     case 'SET_STAGE':
       return { ...state, currentStage: action.payload };
+
+    case 'SET_SCENARIO_ID':
+      return { ...state, scenarioId: action.payload };
 
     case 'ADD_FILE':
       return {
@@ -170,6 +175,7 @@ interface DemoSessionContextType {
   initSession: (projectIdea: string) => void;
   setPhase: (phase: Phase) => void;
   setStage: (stage: Stage) => void;
+  setScenarioId: (scenarioId: string) => void;
   addFile: (file: FileTreeNode) => void;
   updateFile: (path: string, updates: Partial<FileTreeNode>) => void;
   addAIResponse: (response: AIResponse) => void;
@@ -190,6 +196,7 @@ export function DemoSessionProvider({ children }: { children: ReactNode }) {
     initSession: (projectIdea) => dispatch({ type: 'INIT_SESSION', payload: { projectIdea } }),
     setPhase: (phase) => dispatch({ type: 'SET_PHASE', payload: phase }),
     setStage: (stage) => dispatch({ type: 'SET_STAGE', payload: stage }),
+    setScenarioId: (scenarioId) => dispatch({ type: 'SET_SCENARIO_ID', payload: scenarioId }),
     addFile: (file) => dispatch({ type: 'ADD_FILE', payload: file }),
     updateFile: (path, updates) => dispatch({ type: 'UPDATE_FILE', payload: { path, updates } }),
     addAIResponse: (response) => dispatch({ type: 'ADD_AI_RESPONSE', payload: response }),

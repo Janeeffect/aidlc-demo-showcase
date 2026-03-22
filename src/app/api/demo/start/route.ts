@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
 
     if (!projectIdea || projectIdea.trim().length === 0) {
       return NextResponse.json(
-        { error: 'Project idea is required' },
+        { success: false, message: '프로젝트 아이디어를 입력해주세요' },
         { status: 400 }
       );
     }
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error starting demo:', error);
     return NextResponse.json(
-      { error: 'Failed to start demo' },
+      { success: false, message: '데모 시작에 실패했습니다' },
       { status: 500 }
     );
   }

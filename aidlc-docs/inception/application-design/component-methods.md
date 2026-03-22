@@ -1,187 +1,129 @@
-# AI-DLC Demo Showcase - Component Methods
+# AI-DLC Demo Showcase - Component Methods (Brownfield Update)
 
-## 1. Pages Methods
+## 1. 신규 모듈 Methods
 
-### StartPage
+### ScenarioDetector (`src/utils/scenarioDetector.ts`)
 ```typescript
-// 데모 시작 처리
-handleStart(projectIdea: string): void
+// 산업 시나리오 감지 (DemoPage에서 분리)
+detectScenario(idea: string): IndustryScenario
 
-// 예시 프로젝트 선택
-handleExampleSelect(example: string): void
-
-// 입력 유효성 검사
-validateInput(input: string): boolean
+// 시나리오 데이터 (외부화)
+interface IndustryScenario {
+  domain: string
+  userTypes: string[]
+  mainFeatures: string[]
+  techStack: string[]
+  nfrFocus: string[]
+  questions: string[]
+  userStories: UserStoryData[]
+  apiEndpoints: string[]
+  awsServices: string[]
+}
 ```
 
-### DemoPage
+### DemoStepGenerator (`src/utils/demoStepGenerator.ts`)
 ```typescript
-// 데모 초기화
-initializeDemo(projectIdea: string): Promise<void>
+// 7개 데모 단계 생성 (DemoPage에서 분리)
+generateDemoSteps(projectIdea: string): DemoStep[]
 
-// AI 스트리밍 시작
-startAIStream(phase: Phase, stage: Stage): Promise<void>
+// 단계별 애니메이션 시퀀스 생성 (NEW)
+generateAnimationSequence(step: DemoStep): AnimationStep[]
 
-// 애니메이션 스텝 실행
-executeAnimationStep(step: AnimationStep): Promise<void>
-
-// Phase 전환
-transitionToPhase(nextPhase: Phase): void
-
-// 데모 완료 처리
-handleDemoComplete(result: DemoResult): void
+interface DemoStep {
+  phase: Phase
+  stage: Stage
+  label: string
+  fileName: string
+  fileContent: string
+  chatSequence: ChatMessage[]
+  animationSequence: AnimationStep[]  // NEW
+}
 ```
 
-### ResultPage
+### useDemoProgress Hook (`src/hooks/useDemoProgress.ts`)
 ```typescript
-// MVP 컴포넌트 렌더링
-renderMVPComponent(code: string): ReactNode
+interface UseDemoProgressReturn {
+  currentStep: number
+  isAnimating: boolean
+  stepCompleted: boolean
+  progress: number
+  handleNextStep: () => void
+  handlePrevStep: () => void
+  setIsAnimating: (v: boolean) => void
+  setStepCompleted: (v: boolean) => void
+}
 
-// 아키텍처 다이어그램 생성
-generateArchitectureDiagram(services: AWSService[]): void
-
-// QR 코드 생성
-generateQRCode(url: string): string
-
-// 리셋 처리
-handleReset(): void
+useDemoProgress(totalSteps: number): UseDemoProgressReturn
 ```
 
----
-
-## 2. UI Components Methods
-
-### KiroIDELayout
+### useRunStep Hook (`src/hooks/useRunStep.ts`)
 ```typescript
-// 레이아웃 초기화
-initializeLayout(): void
+interface UseRunStepReturn {
+  runStep: (stepIdx: number) => Promise<void>
+  cancelCurrentRun: () => void
+}
 
-// 패널 크기 조정
-resizePanel(panel: 'explorer' | 'editor' | 'terminal', size: number): void
-
-// 탭 추가
-addTab(fileName: string): void
-
-// 탭 활성화
-activateTab(fileName: string): void
-```
-
-### FileExplorer
-```typescript
-// 파일 트리 렌더링
-renderFileTree(nodes: FileTreeNode[]): ReactNode
-
-// 파일 추가 (애니메이션 포함)
-addFile(path: string, type: 'file' | 'folder'): Promise<void>
-
-// 폴더 토글
-toggleFolder(path: string): void
-
-// 파일 선택
-selectFile(path: string): void
-```
-
-### CodeEditor
-```typescript
-// 콘텐츠 설정 (타이핑 효과)
-setContentWithTyping(content: string, speed: number): Promise<void>
-
-// 즉시 콘텐츠 설정
-setContentImmediate(content: string): void
-
-// 구문 하이라이팅 적용
-applySyntaxHighlighting(content: string, language: string): string
-
-// 스크롤 위치 조정
-scrollToLine(lineNumber: number): void
-```
-
-### PhaseIndicator
-```typescript
-// Phase 업데이트
-updatePhase(phase: Phase): void
-
-// Stage 업데이트
-updateStage(stage: Stage): void
-
-// 진행률 업데이트
-updateProgress(progress: number): void
-```
-
-### MVPPreview
-```typescript
-// 동적 컴포넌트 렌더링
-renderDynamicComponent(code: string): ReactNode
-
-// 디바이스 프레임 전환
-switchDeviceFrame(type: 'mobile' | 'desktop'): void
-
-// 인터랙션 핸들링
-handleInteraction(event: InteractionEvent): void
-```
-
-### AWSArchitectureDiagram
-```typescript
-// 다이어그램 렌더링
-renderDiagram(services: AWSService[], connections: ServiceConnection[]): void
-
-// 서비스 노드 추가 (애니메이션)
-addServiceNode(service: AWSService): Promise<void>
-
-// 연결선 추가 (애니메이션)
-addConnection(connection: ServiceConnection): Promise<void>
+useRunStep(
+  demoSteps: DemoStep[],
+  callbacks: {
+    onChatMessage: (msg: ChatMessage) => void
+    onFileAdd: (file: FileTreeNode) => void
+    onEditorContent: (content: string) => void
+    onPhaseChange: (phase: Phase, stage: Stage) => void
+    onProgress: (progress: number) => void
+    onStepComplete: () => void
+    onAnimationStep: (step: AnimationStep) => void  // NEW
+  }
+): UseRunStepReturn
 ```
 
 ---
 
-## 3. Animation System Methods
+## 2. Animation System Methods (통합)
 
 ### MousePointer
 ```typescript
-// 위치로 이동 (애니메이션)
-moveTo(x: number, y: number, duration: number): Promise<void>
+// 위치로 이동 (ease-in-out)
+moveTo(x: number, y: number, duration?: number): Promise<void>
 
-// 클릭 애니메이션
+// 클릭 애니메이션 (ripple/scale)
 click(): Promise<void>
-
-// 더블 클릭 애니메이션
-doubleClick(): Promise<void>
 
 // 표시/숨김
 setVisible(visible: boolean): void
+
+// 요소 위치로 이동 (DOM element ref 기반)
+moveToElement(elementRef: RefObject<HTMLElement>): Promise<void>
 ```
 
 ### AnimationOrchestrator
 ```typescript
-// 애니메이션 시퀀스 시작
-start(): Promise<void>
+// 단계별 애니메이션 시퀀스 실행
+executeSequence(steps: AnimationStep[]): Promise<void>
 
-// 일시정지
-pause(): void
+// 현재 시퀀스 취소
+cancelSequence(): void
 
-// 재개
-resume(): void
-
-// 스텝 실행
+// 단일 스텝 실행
 executeStep(step: AnimationStep): Promise<void>
 
-// 속도 설정
-setSpeed(speed: number): void
-
-// 현재 스텝 가져오기
-getCurrentStep(): AnimationStep | null
+interface AnimationStep {
+  type: 'move' | 'click' | 'type' | 'scroll' | 'wait'
+  target?: string          // CSS selector 또는 element ID
+  position?: { x: number, y: number }
+  text?: string            // type 액션용
+  duration?: number        // ms
+  delay?: number           // 스텝 전 대기
+}
 ```
 
 ### TypingEffect
 ```typescript
 // 타이핑 시작
-startTyping(): Promise<void>
+startTyping(text: string, speed?: number): Promise<void>
 
 // 타이핑 중지
 stopTyping(): void
-
-// 속도 변경
-setSpeed(speed: number): void
 
 // 즉시 완료
 completeImmediately(): void
@@ -189,150 +131,123 @@ completeImmediately(): void
 
 ---
 
-## 4. State Management Methods
+## 3. i18n System Methods
 
-### DemoSessionContext
+### LanguageContext
 ```typescript
-// 세션 초기화
-initSession(projectIdea: string): string // returns sessionId
+interface LanguageContextValue {
+  locale: 'ko' | 'en'
+  setLocale: (locale: 'ko' | 'en') => void
+  t: (key: string) => string
+}
+```
 
-// Phase 업데이트
-setPhase(phase: Phase): void
+### useTranslation Hook (`src/i18n/index.ts`)
+```typescript
+// 번역 함수 반환
+useTranslation(): {
+  t: (key: string) => string
+  locale: 'ko' | 'en'
+  setLocale: (locale: 'ko' | 'en') => void
+}
 
-// Stage 업데이트
-setStage(stage: Stage): void
+// 사용 예시
+const { t } = useTranslation()
+t('start.title')        // "어떤 서비스를 만들고 싶으세요?" | "What service would you like to build?"
+t('demo.nextStep')      // "다음 단계" | "Next Step"
+t('result.tabs.mvp')    // "MVP 미리보기" | "MVP Preview"
+```
 
-// 파일 추가
-addFile(file: FileTreeNode): void
-
-// AI 응답 추가
-addAIResponse(response: AIResponse): void
-
-// 진행률 업데이트
-setProgress(progress: number): void
-
-// 결과 설정
-setResult(result: DemoResult): void
-
-// 세션 리셋
-resetSession(): void
-
-// 세션 상태 가져오기
-getSessionState(): DemoSessionState
+### LanguageToggle
+```typescript
+interface LanguageToggleProps {
+  className?: string
+}
+// 내부적으로 useTranslation() 사용
 ```
 
 ---
 
-## 5. API Routes Methods
+## 4. AdminPage Methods
 
-### /api/demo/start (POST)
+### AdminPage (`src/app/admin/page.tsx`)
 ```typescript
-// Request
-interface StartDemoRequest {
-  projectIdea: string;
+// 통계 데이터 로드
+loadStatistics(): Promise<LogStatistics>
+
+// 산업별 분포 계산
+calculateIndustryDistribution(logs: DemoLog[]): IndustryDistribution[]
+
+// 세션 추이 계산
+calculateSessionTrend(logs: DemoLog[]): SessionTrend[]
+
+// 인기 아이디어 추출
+extractPopularIdeas(logs: DemoLog[]): PopularIdea[]
+
+interface LogStatistics {
+  totalSessions: number
+  completedSessions: number
+  completionRate: number
+  averageDuration: number
+  recentLogs: DemoLog[]
 }
 
-// Response
-interface StartDemoResponse {
-  sessionId: string;
-  status: 'started';
-}
-```
-
-### /api/demo/stream (GET)
-```typescript
-// Query Parameters
-interface StreamParams {
-  sessionId: string;
-  phase: Phase;
-  stage: Stage;
-}
-
-// Response: Server-Sent Events
-// event: content
-// data: { type: 'text' | 'code' | 'file', content: string }
-```
-
-### /api/demo/estimate (POST)
-```typescript
-// Request
-interface EstimateRequest {
-  sessionId: string;
-  projectIdea: string;
-  generatedContent: GeneratedContent;
-}
-
-// Response
-interface EstimateResponse {
-  traditionalDays: number;
-  teamComposition: TeamMember[];
-  estimatedDuration: string;
-  estimatedTeamSize: number;
-}
-```
-
-### /api/log (POST)
-```typescript
-// Request
-interface LogRequest {
-  sessionId: string;
-  projectIdea: string;
-  completed: boolean;
-  durationMs: number;
-}
-
-// Response
-interface LogResponse {
-  status: 'logged';
+interface IndustryDistribution {
+  industry: string
+  count: number
+  percentage: number
 }
 ```
 
 ---
 
-## 6. Services Methods
+## 5. 수정되는 기존 Methods
 
-### AIService
+### StartPage (수정)
 ```typescript
-// AI 스트리밍 응답 생성
-streamResponse(
-  projectIdea: string,
-  phase: Phase,
-  stage: Stage
-): AsyncGenerator<AIChunk>
+// 기존
+handleStart(projectIdea: string): void
 
-// 프롬프트 구성
-buildPrompt(projectIdea: string, phase: Phase, stage: Stage): string
-
-// MVP 코드 생성
-generateMVPCode(projectIdea: string): Promise<string>
-
-// AWS 아키텍처 생성
-generateAWSArchitecture(projectIdea: string): Promise<AWSArchitecture>
+// 추가
+logSessionStart(sessionId: string, projectIdea: string): Promise<void>  // NEW
 ```
 
-### LogService
+### ResultPage (수정)
 ```typescript
-// 로그 저장
-saveLog(log: DemoLog): Promise<void>
-
-// 로그 조회
-getLogs(filter?: LogFilter): Promise<DemoLog[]>
-
-// 통계 조회
-getStatistics(): Promise<LogStatistics>
+// 추가
+logSessionComplete(sessionId: string, durationMs: number): Promise<void>  // NEW
+handleEmailError(error: Error): void  // NEW - 에러 메시지 표시
 ```
 
-### EstimateService
+### PhaseIndicator (수정)
 ```typescript
-// Production 예상 정보 계산
-calculateEstimate(
-  projectIdea: string,
-  generatedContent: GeneratedContent
-): Promise<ProductionEstimate>
-
-// 복잡도 분석
-analyzeComplexity(content: GeneratedContent): ComplexityScore
-
-// 팀 구성 추천
-recommendTeamComposition(complexity: ComplexityScore): TeamMember[]
+// phaseConfigs를 useMemo로 래핑
+const phaseConfigs = useMemo(() => [...], [currentPhase, currentStage])
 ```
+
+### API Routes 에러 응답 통일
+```typescript
+// 모든 API Route 공통 에러 응답 형식
+interface ApiErrorResponse {
+  success: false
+  message: string      // 사용자 친화적 메시지
+  error?: string       // 기술적 에러 상세 (개발용)
+}
+
+interface ApiSuccessResponse<T> {
+  success: true
+  data: T
+}
+```
+
+---
+
+## 6. 삭제 대상 Methods
+
+### AIService (전체 삭제)
+- ~~streamResponse()~~
+- ~~generateContent()~~
+- ~~buildPrompt()~~
+
+### /api/demo/stream (전체 삭제)
+### /api/demo/estimate (전체 삭제)

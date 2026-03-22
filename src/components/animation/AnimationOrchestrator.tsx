@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AnimationStep, AnimationSequence, Position } from '@/types/animation';
-import MousePointer from './MousePointer';
 
 interface AnimationOrchestratorProps {
   sequence: AnimationSequence | null;
@@ -122,11 +121,7 @@ export default function AnimationOrchestrator({
 
   return (
     <>
-      <MousePointer
-        position={mousePosition}
-        isClicking={isClicking}
-        isVisible={isMouseVisible && isPlaying}
-      />
+      {/* MousePointer removed (CR-06) */}
       
       {/* Hidden controls for external access */}
       <div className="hidden">

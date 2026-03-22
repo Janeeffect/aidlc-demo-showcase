@@ -3,7 +3,12 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import { useDemoSession } from '@/contexts/DemoSessionContext';
+import { logService } from '@/services/LogService';
+import { useTranslation } from '@/i18n';
+import LanguageToggle from '@/components/ui/LanguageToggle';
+import { detectScenario } from '@/utils/scenarioDetector';
 
 const industryCategories = [
   { id: 1, name: '이커머스/리테일', examples: ['온라인 쇼핑몰', '재고 관리 시스템', '주문 추적 서비스', '상품 추천 엔진', '리뷰 관리 플랫폼'] },
@@ -16,30 +21,37 @@ const industryCategories = [
 
 function KiroLogo({ size = 48 }: { size?: number }) {
   return (
-    <img src="/kiro.jpg" alt="Kiro" width={size} height={size} className="rounded-lg object-contain" />
+    <Image src="/kiro.jpg" alt="Kiro AI 어시스턴트" width={size} height={size} className="rounded-lg object-contain" />
   );
 }
 
 export default function StartPage() {
   const [projectIdea, setProjectIdea] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedIndustry, setSelectedIndustry] = useState('');
   const router = useRouter();
   const { initSession } = useDemoSession();
+  const { t } = useTranslation();
 
   const handleStart = async () => {
     if (!projectIdea.trim()) return;
     setIsLoading(true);
     try {
       initSession(projectIdea);
+      const sessionId = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID() : Math.random().toString(36).substring(2);
+      logService.logStart(sessionId, projectIdea, selectedIndustry || undefined).catch(() => {});
       await fetch('/api/demo/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectIdea }),
       }).catch(() => {});
-      router.push(`/demo?idea=${encodeURIComponent(projectIdea)}`);
+      const scenarioId = detectScenario(projectIdea).id;
+      router.push(`/demo?idea=${encodeURIComponent(projectIdea)}&scenario=${scenarioId}`);
     } catch (error) {
       console.error('Failed to start demo:', error);
-      router.push(`/demo?idea=${encodeURIComponent(projectIdea)}`);
+      const scenarioId = detectScenario(projectIdea).id;
+      router.push(`/demo?idea=${encodeURIComponent(projectIdea)}&scenario=${scenarioId}`);
     } finally {
       setIsLoading(false);
     }
@@ -68,13 +80,14 @@ export default function StartPage() {
           </div>
 
           <div className="bg-[#12121a] rounded-xl p-6 border border-[#2a2a3a] kiro-glow">
-            <label className="block text-[#e4e4ed] mb-3 text-sm font-medium">어떤 서비스를 만들고 싶으세요?</label>
+            <label className="block text-[#e4e4ed] mb-3 text-sm font-medium">{t('start.inputLabel')}</label>
             <input
               type="text"
               value={projectIdea}
               onChange={(e) => setProjectIdea(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleStart()}
-              placeholder="예: 온라인 쇼핑몰"
+              placeholder={t('start.placeholder')}
+              aria-label={t('start.inputLabel')}
               className="w-full bg-[#0a0a0f] text-white p-3.5 rounded-lg border border-[#2a2a3a] focus:border-[#7c5cfc] focus:ring-1 focus:ring-[#7c5cfc]/50 focus:outline-none placeholder-[#4a4a5a] transition-all text-sm"
               disabled={isLoading}
             />
@@ -91,9 +104,9 @@ export default function StartPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  시작하는 중...
+                  {t('start.starting')}
                 </span>
-              ) : 'AI-DLC 시작하기'}
+              ) : t('start.startButton')}
             </motion.button>
           </div>
           <p className="text-center text-[#4a4a5a] text-xs mt-6">AWS Summit 2026</p>
@@ -103,8 +116,11 @@ export default function StartPage() {
       {/* Right Panel */}
       <div className="w-3/5 p-6 overflow-auto relative z-10">
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2, duration: 0.6 }}>
-          <h2 className="text-lg font-semibold text-white mb-1">산업별 예시</h2>
-          <p className="text-[#8888a0] text-xs mb-6">예시를 클릭하면 자동으로 입력됩니다</p>
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-lg font-semibold text-white">{t('start.industryTitle')}</h2>
+            <LanguageToggle />
+          </div>
+          <p className="text-[#8888a0] text-xs mb-6">{t('start.industryDesc')}</p>
 
           <div className="grid grid-cols-2 gap-3">
             {industryCategories.map((category, index) => (
@@ -125,7 +141,7 @@ export default function StartPage() {
                   {category.examples.map((example) => (
                     <button
                       key={example}
-                      onClick={() => setProjectIdea(example)}
+                      onClick={() => { setProjectIdea(example); setSelectedIndustry(category.name); }}
                       className={`px-2.5 py-1 rounded-md text-xs transition-all ${
                         projectIdea === example
                           ? 'bg-gradient-to-r from-[#7c5cfc] to-[#4a9eff] text-white'

@@ -106,7 +106,120 @@ function analyzeComplexity(idea: string): {
   return { complexity, features, scale };
 }
 
-export function calculateEstimate(projectIdea: string): ProjectEstimate {
+const SCENARIO_ESTIMATE_TEMPLATES: Record<string, ProjectEstimate> = {
+  ecommerce: {
+    developmentDays: 75, teamSize: 8, complexity: 'high',
+    teamComposition: [
+      { role: 'Tech Lead', count: 1, seniorityLevel: 'Senior' },
+      { role: 'Frontend Developer', count: 2, seniorityLevel: 'Mid-level' },
+      { role: 'Backend Developer', count: 2, seniorityLevel: 'Mid-level' },
+      { role: 'DevOps Engineer', count: 1, seniorityLevel: 'Senior' },
+      { role: 'UI/UX Designer', count: 1, seniorityLevel: 'Senior' },
+      { role: 'QA Engineer', count: 1, seniorityLevel: 'Mid-level' },
+    ],
+    estimatedCost: { monthly: { min: 500, max: 2000 }, development: { min: 192000, max: 288000 }, currency: 'USD' },
+    techStack: ['Next.js', 'TypeScript', 'Tailwind CSS', 'AWS Lambda', 'DynamoDB', 'SQS', 'S3', 'CloudFront'],
+    aiSavedDays: 30, aiSavedPercentage: 40,
+  },
+  fintech: {
+    developmentDays: 90, teamSize: 10, complexity: 'high',
+    teamComposition: [
+      { role: 'Tech Lead', count: 1, seniorityLevel: 'Senior' },
+      { role: 'Frontend Developer', count: 2, seniorityLevel: 'Mid-level' },
+      { role: 'Backend Developer', count: 3, seniorityLevel: 'Mid-level' },
+      { role: 'DevOps Engineer', count: 1, seniorityLevel: 'Senior' },
+      { role: 'UI/UX Designer', count: 1, seniorityLevel: 'Senior' },
+      { role: 'QA Engineer', count: 2, seniorityLevel: 'Mid-level' },
+    ],
+    estimatedCost: { monthly: { min: 800, max: 3000 }, development: { min: 288000, max: 432000 }, currency: 'USD' },
+    techStack: ['Next.js', 'TypeScript', 'Tailwind CSS', 'AWS Lambda', 'Aurora', 'KMS', 'Step Functions', 'WAF'],
+    aiSavedDays: 36, aiSavedPercentage: 40,
+  },
+  healthcare: {
+    developmentDays: 80, teamSize: 9, complexity: 'high',
+    teamComposition: [
+      { role: 'Tech Lead', count: 1, seniorityLevel: 'Senior' },
+      { role: 'Frontend Developer', count: 2, seniorityLevel: 'Mid-level' },
+      { role: 'Backend Developer', count: 2, seniorityLevel: 'Mid-level' },
+      { role: 'DevOps Engineer', count: 1, seniorityLevel: 'Senior' },
+      { role: 'UI/UX Designer', count: 1, seniorityLevel: 'Senior' },
+      { role: 'QA Engineer', count: 2, seniorityLevel: 'Mid-level' },
+    ],
+    estimatedCost: { monthly: { min: 600, max: 2500 }, development: { min: 230400, max: 345600 }, currency: 'USD' },
+    techStack: ['Next.js', 'TypeScript', 'Tailwind CSS', 'AWS Lambda', 'Aurora', 'Chime SDK', 'S3', 'KMS'],
+    aiSavedDays: 32, aiSavedPercentage: 40,
+  },
+  education: {
+    developmentDays: 55, teamSize: 6, complexity: 'medium',
+    teamComposition: [
+      { role: 'Frontend Developer', count: 2, seniorityLevel: 'Mid-level' },
+      { role: 'Backend Developer', count: 2, seniorityLevel: 'Mid-level' },
+      { role: 'UI/UX Designer', count: 1, seniorityLevel: 'Mid-level' },
+      { role: 'QA Engineer', count: 1, seniorityLevel: 'Junior' },
+    ],
+    estimatedCost: { monthly: { min: 200, max: 800 }, development: { min: 105600, max: 158400 }, currency: 'USD' },
+    techStack: ['Next.js', 'TypeScript', 'Tailwind CSS', 'AWS Lambda', 'DynamoDB', 'S3', 'MediaConvert', 'CloudFront'],
+    aiSavedDays: 22, aiSavedPercentage: 40,
+  },
+  logistics: {
+    developmentDays: 70, teamSize: 8, complexity: 'high',
+    teamComposition: [
+      { role: 'Tech Lead', count: 1, seniorityLevel: 'Senior' },
+      { role: 'Frontend Developer', count: 2, seniorityLevel: 'Mid-level' },
+      { role: 'Backend Developer', count: 2, seniorityLevel: 'Mid-level' },
+      { role: 'DevOps Engineer', count: 1, seniorityLevel: 'Senior' },
+      { role: 'UI/UX Designer', count: 1, seniorityLevel: 'Mid-level' },
+      { role: 'QA Engineer', count: 1, seniorityLevel: 'Mid-level' },
+    ],
+    estimatedCost: { monthly: { min: 400, max: 1500 }, development: { min: 179200, max: 268800 }, currency: 'USD' },
+    techStack: ['Next.js', 'TypeScript', 'Tailwind CSS', 'AWS Lambda', 'DynamoDB', 'Location Service', 'IoT Core', 'SNS'],
+    aiSavedDays: 28, aiSavedPercentage: 40,
+  },
+  saas: {
+    developmentDays: 60, teamSize: 7, complexity: 'medium',
+    teamComposition: [
+      { role: 'Tech Lead', count: 1, seniorityLevel: 'Senior' },
+      { role: 'Frontend Developer', count: 2, seniorityLevel: 'Mid-level' },
+      { role: 'Backend Developer', count: 2, seniorityLevel: 'Mid-level' },
+      { role: 'UI/UX Designer', count: 1, seniorityLevel: 'Mid-level' },
+      { role: 'QA Engineer', count: 1, seniorityLevel: 'Junior' },
+    ],
+    estimatedCost: { monthly: { min: 300, max: 1200 }, development: { min: 134400, max: 201600 }, currency: 'USD' },
+    techStack: ['Next.js', 'TypeScript', 'Tailwind CSS', 'AWS Lambda', 'DynamoDB', 'AppSync', 'ElastiCache', 'Cognito'],
+    aiSavedDays: 24, aiSavedPercentage: 40,
+  },
+  chat: {
+    developmentDays: 45, teamSize: 5, complexity: 'medium',
+    teamComposition: [
+      { role: 'Frontend Developer', count: 2, seniorityLevel: 'Mid-level' },
+      { role: 'Backend Developer', count: 1, seniorityLevel: 'Mid-level' },
+      { role: 'UI/UX Designer', count: 1, seniorityLevel: 'Mid-level' },
+      { role: 'QA Engineer', count: 1, seniorityLevel: 'Junior' },
+    ],
+    estimatedCost: { monthly: { min: 150, max: 600 }, development: { min: 72000, max: 108000 }, currency: 'USD' },
+    techStack: ['Next.js', 'TypeScript', 'Tailwind CSS', 'AWS Lambda', 'DynamoDB', 'API Gateway WebSocket', 'ElastiCache', 'SNS'],
+    aiSavedDays: 18, aiSavedPercentage: 40,
+  },
+  default: {
+    developmentDays: 50, teamSize: 6, complexity: 'medium',
+    teamComposition: [
+      { role: 'Frontend Developer', count: 2, seniorityLevel: 'Mid-level' },
+      { role: 'Backend Developer', count: 2, seniorityLevel: 'Mid-level' },
+      { role: 'UI/UX Designer', count: 1, seniorityLevel: 'Mid-level' },
+      { role: 'QA Engineer', count: 1, seniorityLevel: 'Junior' },
+    ],
+    estimatedCost: { monthly: { min: 100, max: 500 }, development: { min: 96000, max: 144000 }, currency: 'USD' },
+    techStack: ['Next.js', 'TypeScript', 'Tailwind CSS', 'AWS Lambda', 'DynamoDB', 'Cognito', 'S3'],
+    aiSavedDays: 20, aiSavedPercentage: 40,
+  },
+};
+
+export function calculateEstimate(projectIdea: string, scenarioId?: string): ProjectEstimate {
+  // scenarioId 기반 고정 템플릿 우선
+  if (scenarioId && SCENARIO_ESTIMATE_TEMPLATES[scenarioId]) {
+    return SCENARIO_ESTIMATE_TEMPLATES[scenarioId];
+  }
+
   const { complexity, features, scale } = analyzeComplexity(projectIdea);
   
   // 기본 개발 일수 (복잡도별)

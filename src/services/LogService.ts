@@ -33,12 +33,13 @@ export class LogService {
   }
 
   // Log demo start
-  async logStart(sessionId: string, projectIdea: string): Promise<void> {
+  async logStart(sessionId: string, projectIdea: string, industry?: string): Promise<void> {
     await this.saveLog({
       sessionId,
       projectIdea,
       completed: false,
       durationMs: 0,
+      industry,
     });
   }
 

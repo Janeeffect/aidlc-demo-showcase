@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { LogRequest, LogResponse } from '@/types/api';
 import { DemoLog } from '@/types/demo';
+import {
+  calculateIndustryDistribution,
+  calculateSessionTrend,
+  extractPopularIdeas,
+} from '@/services/StatisticsService';
 
 // In-memory log storage (in production, use a database)
 const logs: DemoLog[] = [];
@@ -8,7 +13,7 @@ const logs: DemoLog[] = [];
 export async function POST(request: NextRequest) {
   try {
     const body: LogRequest = await request.json();
-    const { sessionId, projectIdea, completed, durationMs } = body;
+    const { sessionId, projectIdea, completed, durationMs, industry } = body;
 
     const log: DemoLog = {
       id: `log-${Date.now()}`,
@@ -17,6 +22,7 @@ export async function POST(request: NextRequest) {
       completed,
       durationMs,
       timestamp: new Date().toISOString(),
+      industry,
     };
 
     logs.push(log);
@@ -32,7 +38,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error logging:', error);
     return NextResponse.json(
-      { error: 'Failed to log' },
+      { success: false, message: '로그 기록에 실패했습니다' },
       { status: 500 }
     );
   }
@@ -51,13 +57,16 @@ export async function GET() {
         ? logs.reduce((sum, l) => sum + l.durationMs, 0) / logs.length
         : 0,
       recentLogs: logs.slice(-10).reverse(),
+      industryDistribution: calculateIndustryDistribution(logs),
+      sessionTrend: calculateSessionTrend(logs),
+      popularIdeas: extractPopularIdeas(logs),
     };
 
     return NextResponse.json(statistics);
   } catch (error) {
     console.error('Error fetching logs:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch logs' },
+      { success: false, message: '로그 조회에 실패했습니다' },
       { status: 500 }
     );
   }

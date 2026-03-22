@@ -12,9 +12,128 @@ interface SequenceStep {
 
 interface BusinessWorkflowDiagramProps {
   projectIdea: string;
+  scenarioId?: string;
 }
 
-function generateSequence(idea: string): { actors: string[]; steps: SequenceStep[]; title: string } {
+const SCENARIO_SEQUENCES: Record<string, { actors: string[]; steps: SequenceStep[]; title: string }> = {
+  ecommerce: {
+    title: '주문 처리 시퀀스',
+    actors: ['고객', '프론트엔드', 'API Gateway', 'Lambda', 'DynamoDB', 'SQS', '결제PG'],
+    steps: [
+      { from: '고객', to: '프론트엔드', action: '주문 요청' },
+      { from: '프론트엔드', to: 'API Gateway', action: 'POST /orders' },
+      { from: 'API Gateway', to: 'Lambda', action: '주문 생성' },
+      { from: 'Lambda', to: 'DynamoDB', action: '재고 확인 조회' },
+      { from: 'DynamoDB', to: 'Lambda', action: '재고 확인', response: 'available' },
+      { from: 'Lambda', to: 'DynamoDB', action: '주문 정보 저장' },
+      { from: 'Lambda', to: '결제PG', action: '결제 요청' },
+      { from: '결제PG', to: 'Lambda', action: '결제 승인', response: 'approved' },
+      { from: 'Lambda', to: 'SQS', action: '배송 처리 큐 등록' },
+      { from: 'Lambda', to: '프론트엔드', action: '주문 완료 응답' },
+      { from: '결제PG', to: 'Lambda', action: '결제 실패 시 롤백' },
+      { from: 'Lambda', to: 'DynamoDB', action: '주문 취소 + 재고 복원' },
+      { from: 'Lambda', to: '프론트엔드', action: '에러 응답 + 재시도 안내' },
+    ],
+  },
+  fintech: {
+    title: '송금 처리 시퀀스',
+    actors: ['사용자', '프론트엔드', 'API Gateway', 'Lambda', 'Aurora', 'KMS', 'Step Functions'],
+    steps: [
+      { from: '사용자', to: '프론트엔드', action: '송금 요청' },
+      { from: '프론트엔드', to: 'API Gateway', action: 'POST /transfers' },
+      { from: 'API Gateway', to: 'Lambda', action: '송금 검증' },
+      { from: 'Lambda', to: 'KMS', action: '데이터 암호화' },
+      { from: 'KMS', to: 'Lambda', action: '암호화 완료', response: 'encrypted' },
+      { from: 'Lambda', to: 'Step Functions', action: '송금 워크플로우 시작' },
+      { from: 'Step Functions', to: 'Aurora', action: '잔액 확인' },
+      { from: 'Aurora', to: 'Step Functions', action: '잔액 충분', response: 'sufficient' },
+      { from: 'Step Functions', to: 'Aurora', action: '잔액 차감 + 입금' },
+      { from: 'Aurora', to: 'Step Functions', action: '트랜잭션 완료', response: 'committed' },
+      { from: 'Step Functions', to: 'Lambda', action: '감사 로그 기록' },
+      { from: 'Step Functions', to: '프론트엔드', action: '송금 완료 응답' },
+      { from: 'Aurora', to: 'Step Functions', action: '잔액 부족 시 실패', response: 'insufficient' },
+      { from: 'Step Functions', to: '프론트엔드', action: '에러 응답 + 잔액 안내' },
+    ],
+  },
+  healthcare: {
+    title: '원격 진료 시퀀스',
+    actors: ['환자', '프론트엔드', 'API Gateway', 'Lambda', 'Aurora', 'Chime SDK', 'SES'],
+    steps: [
+      { from: '환자', to: '프론트엔드', action: '진료 예약' },
+      { from: '프론트엔드', to: 'API Gateway', action: 'POST /appointments' },
+      { from: 'API Gateway', to: 'Lambda', action: '예약 처리' },
+      { from: 'Lambda', to: 'Aurora', action: '의사 스케줄 확인' },
+      { from: 'Aurora', to: 'Lambda', action: '가용 시간', response: 'available' },
+      { from: 'Lambda', to: 'Aurora', action: '예약 저장' },
+      { from: 'Lambda', to: 'Chime SDK', action: '화상 세션 생성' },
+      { from: 'Chime SDK', to: 'Lambda', action: '세션 URL', response: 'session_url' },
+      { from: 'Lambda', to: 'SES', action: '예약 확인 이메일' },
+      { from: 'Lambda', to: '프론트엔드', action: '예약 완료 응답' },
+      { from: 'Aurora', to: 'Lambda', action: '스케줄 충돌 시 실패', response: 'conflict' },
+      { from: 'Lambda', to: '프론트엔드', action: '대체 시간 제안 응답' },
+    ],
+  },
+  education: {
+    title: '강의 수강 시퀀스',
+    actors: ['학습자', '프론트엔드', 'API Gateway', 'Lambda', 'DynamoDB', 'S3', 'CloudFront'],
+    steps: [
+      { from: '학습자', to: '프론트엔드', action: '강의 선택' },
+      { from: '프론트엔드', to: 'API Gateway', action: 'GET /courses/:id' },
+      { from: 'API Gateway', to: 'Lambda', action: '강의 정보 조회' },
+      { from: 'Lambda', to: 'DynamoDB', action: '진도 데이터 조회' },
+      { from: 'Lambda', to: '프론트엔드', action: '강의 정보 응답' },
+      { from: '프론트엔드', to: 'CloudFront', action: '영상 스트리밍 요청' },
+      { from: 'CloudFront', to: 'S3', action: '영상 파일 조회' },
+      { from: 'S3', to: '학습자', action: '영상 스트리밍' },
+    ],
+  },
+  logistics: {
+    title: '배송 추적 시퀀스',
+    actors: ['고객', '프론트엔드', 'API Gateway', 'Lambda', 'DynamoDB', 'IoT Core', 'SNS'],
+    steps: [
+      { from: '고객', to: '프론트엔드', action: '배송 추적 요청' },
+      { from: '프론트엔드', to: 'API Gateway', action: 'GET /tracking/:id' },
+      { from: 'API Gateway', to: 'Lambda', action: '추적 정보 조회' },
+      { from: 'Lambda', to: 'DynamoDB', action: '배송 상태 조회' },
+      { from: 'IoT Core', to: 'Lambda', action: 'GPS 위치 업데이트' },
+      { from: 'Lambda', to: 'DynamoDB', action: '위치 정보 저장' },
+      { from: 'Lambda', to: 'SNS', action: '도착 알림 발송' },
+      { from: 'Lambda', to: '프론트엔드', action: '실시간 위치 응답' },
+    ],
+  },
+  saas: {
+    title: '프로젝트 협업 시퀀스',
+    actors: ['팀원', '프론트엔드', 'API Gateway', 'Lambda', 'DynamoDB', 'AppSync'],
+    steps: [
+      { from: '팀원', to: '프론트엔드', action: '태스크 업데이트' },
+      { from: '프론트엔드', to: 'API Gateway', action: 'PUT /tasks/:id' },
+      { from: 'API Gateway', to: 'Lambda', action: '태스크 처리' },
+      { from: 'Lambda', to: 'DynamoDB', action: '태스크 저장' },
+      { from: 'Lambda', to: 'AppSync', action: '실시간 동기화' },
+      { from: 'AppSync', to: '프론트엔드', action: '보드 업데이트 브로드캐스트' },
+    ],
+  },
+  chat: {
+    title: '실시간 채팅 시퀀스',
+    actors: ['사용자A', '프론트엔드', 'API Gateway', 'Lambda', 'DynamoDB', '사용자B'],
+    steps: [
+      { from: '사용자A', to: '프론트엔드', action: '메시지 입력' },
+      { from: '프론트엔드', to: 'API Gateway', action: 'WebSocket 전송' },
+      { from: 'API Gateway', to: 'Lambda', action: '메시지 처리 요청' },
+      { from: 'Lambda', to: 'DynamoDB', action: '메시지 저장' },
+      { from: 'DynamoDB', to: 'Lambda', action: '저장 완료', response: 'ACK' },
+      { from: 'Lambda', to: 'API Gateway', action: '브로드캐스트 요청' },
+      { from: 'API Gateway', to: '사용자B', action: '실시간 메시지 전달' },
+    ],
+  },
+};
+
+function generateSequence(idea: string, scenarioId?: string): { actors: string[]; steps: SequenceStep[]; title: string } {
+  // scenarioId 기반 직접 매핑 우선
+  if (scenarioId && SCENARIO_SEQUENCES[scenarioId]) {
+    return SCENARIO_SEQUENCES[scenarioId];
+  }
+
   const ideaLower = idea.toLowerCase();
   
   if (ideaLower.includes('채팅') || ideaLower.includes('chat') || ideaLower.includes('실시간')) {
@@ -84,8 +203,8 @@ function generateSequence(idea: string): { actors: string[]; steps: SequenceStep
   };
 }
 
-export default function BusinessWorkflowDiagram({ projectIdea }: BusinessWorkflowDiagramProps) {
-  const { actors, steps, title } = useMemo(() => generateSequence(projectIdea), [projectIdea]);
+export default function BusinessWorkflowDiagram({ projectIdea, scenarioId }: BusinessWorkflowDiagramProps) {
+  const { actors, steps, title } = useMemo(() => generateSequence(projectIdea, scenarioId), [projectIdea, scenarioId]);
 
   const actorWidth = 100;
   const actorGap = 20;

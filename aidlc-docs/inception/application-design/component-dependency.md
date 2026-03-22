@@ -1,223 +1,193 @@
-# AI-DLC Demo Showcase - Component Dependencies
+# AI-DLC Demo Showcase - Component Dependencies (Brownfield Update)
 
 ## 의존성 매트릭스
 
-| Component | 의존 대상 | 의존 유형 |
-|-----------|----------|----------|
-| StartPage | DemoSessionContext | State |
-| DemoPage | KiroIDELayout, AnimationOrchestrator, AIService, DemoSessionContext | UI, Animation, Service, State |
-| ResultPage | MVPPreview, AWSArchitectureDiagram, DemoSessionContext | UI, State |
-| KiroIDELayout | FileExplorer, CodeEditor | UI |
-| FileExplorer | - | - |
-| CodeEditor | TypingEffect | Animation |
-| PhaseIndicator | DemoSessionContext | State |
-| MVPPreview | - | - |
-| AWSArchitectureDiagram | - | - |
-| MousePointer | - | - |
-| AnimationOrchestrator | MousePointer, TypingEffect | Animation |
-| TypingEffect | - | - |
-| DemoSessionContext | - | - |
-| AIService | LLM API (External) | External |
-| EstimateService | AIService | Service |
-| LogService | LogStore | Storage |
+| Component | 의존 대상 | 의존 유형 | 변경 |
+|-----------|----------|----------|------|
+| StartPage | DemoSessionContext, LanguageContext, LogService | State, i18n, Service | 수정 |
+| DemoPage | KiroIDELayout, useDemoProgress, useRunStep, ScenarioDetector, DemoStepGenerator, AnimationOrchestrator, LanguageContext | UI, Hook, Util, Animation, i18n | 대폭 수정 |
+| ResultPage | MVPPreview, AWSArchitectureDiagram, BusinessWorkflowDiagram, ResultSummary, EstimateService, LogService, LanguageContext | UI, Service, i18n | 수정 |
+| AdminPage | LogService, LanguageContext | Service, i18n | 신규 |
+| KiroIDELayout | FileExplorer, CodeEditor, PhaseIndicator, MousePointer | UI, Animation | 수정 |
+| FileExplorer | - | - | 수정 (접근성) |
+| CodeEditor | TypingEffect | Animation | 유지 |
+| PhaseIndicator | DemoSessionContext | State | 수정 (메모이제이션) |
+| MVPPreview | mvp-previews/* (lazy) | UI | 분리 |
+| AWSArchitectureDiagram | mermaid (dynamic) | External | 수정 (shimmer) |
+| BusinessWorkflowDiagram | - | - | 유지 |
+| ResultSummary | qrcode.react, LanguageContext | External, i18n | 수정 |
+| MousePointer | framer-motion | Animation | 활용 |
+| AnimationOrchestrator | MousePointer, TypingEffect | Animation | 활용 |
+| TypingEffect | - | - | 활용 |
+| ScenarioDetector | scenarios data | Data | 신규 |
+| DemoStepGenerator | ScenarioDetector | Util | 신규 |
+| useDemoProgress | - | - | 신규 |
+| useRunStep | AnimationOrchestrator | Animation | 신규 |
+| LanguageContext | localStorage | Browser | 신규 |
+| LanguageToggle | LanguageContext | State | 신규 |
+| LogService | /api/log | API | 수정 |
+| EstimateService | - | - | 유지 |
 
 ---
 
 ## 의존성 다이어그램
 
 ```
-                              ┌─────────────────┐
-                              │   StartPage     │
-                              └────────┬────────┘
-                                       │
-                                       ▼
-                              ┌─────────────────┐
-                              │   DemoPage      │
-                              └────────┬────────┘
-                                       │
-              ┌────────────────────────┼────────────────────────┐
-              │                        │                        │
-              ▼                        ▼                        ▼
-    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-    │  KiroIDELayout  │    │  Animation      │    │  AIService      │
-    │                 │    │  Orchestrator   │    │  (API)          │
-    └────────┬────────┘    └────────┬────────┘    └─────────────────┘
-             │                      │
-    ┌────────┴────────┐    ┌────────┴────────┐
-    │                 │    │                 │
-    ▼                 ▼    ▼                 ▼
-┌──────────┐   ┌──────────┐ ┌──────────┐ ┌──────────┐
-│  File    │   │  Code    │ │  Mouse   │ │  Typing  │
-│ Explorer │   │  Editor  │ │  Pointer │ │  Effect  │
-└──────────┘   └────┬─────┘ └──────────┘ └──────────┘
-                    │
-                    ▼
-              ┌──────────┐
-              │  Typing  │
-              │  Effect  │
-              └──────────┘
-
-
-                              ┌─────────────────┐
-                              │   ResultPage    │
-                              └────────┬────────┘
-                                       │
-              ┌────────────────────────┼────────────────────────┐
-              │                        │                        │
-              ▼                        ▼                        ▼
-    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-    │   MVPPreview    │    │  AWSArchitecture│    │  Estimate       │
-    │                 │    │  Diagram        │    │  Service        │
-    └─────────────────┘    └─────────────────┘    └────────┬────────┘
-                                                           │
-                                                           ▼
-                                                  ┌─────────────────┐
-                                                  │   AIService     │
-                                                  └─────────────────┘
-
-
-                    ┌─────────────────────────────────────┐
-                    │        DemoSessionContext           │
-                    │         (Global State)              │
-                    └─────────────────┬───────────────────┘
-                                      │
-        ┌─────────────┬───────────────┼───────────────┬─────────────┐
-        │             │               │               │             │
-        ▼             ▼               ▼               ▼             ▼
-   StartPage     DemoPage       ResultPage     PhaseIndicator   API Routes
+                    +-------------------+
+                    |  LanguageContext   |  (NEW - 모든 페이지에서 사용)
+                    +--------+----------+
+                             |
+     +-----------+-----------+-----------+-----------+
+     |           |           |           |           |
+     v           v           v           v           v
+ StartPage   DemoPage   ResultPage   AdminPage  LanguageToggle
+     |           |           |           |
+     |           |           |           +-> LogService -> /api/log
+     |           |           |
+     |           |           +-> MVPPreview -> mvp-previews/* (lazy)
+     |           |           +-> AWSArchitectureDiagram -> mermaid
+     |           |           +-> BusinessWorkflowDiagram
+     |           |           +-> ResultSummary -> qrcode.react
+     |           |           +-> EstimateService
+     |           |           +-> LogService -> /api/log  (NEW)
+     |           |
+     |           +-> ScenarioDetector -> scenarios data  (NEW)
+     |           +-> DemoStepGenerator  (NEW)
+     |           +-> useDemoProgress  (NEW)
+     |           +-> useRunStep -> AnimationOrchestrator  (NEW)
+     |           +-> KiroIDELayout
+     |                  +-> FileExplorer
+     |                  +-> CodeEditor -> TypingEffect
+     |                  +-> PhaseIndicator
+     |                  +-> MousePointer  (NEW)
+     |
+     +-> DemoSessionContext
+     +-> LogService -> /api/log  (NEW)
+     +-> /api/demo/start
 ```
+
+### Text Alternative
+- LanguageContext: 모든 페이지에서 공유 (신규)
+- DemoPage: ScenarioDetector, DemoStepGenerator, useDemoProgress, useRunStep로 분리 (리팩토링)
+- AnimationOrchestrator -> MousePointer + TypingEffect (DemoPage에 통합)
+- LogService: StartPage, ResultPage, AdminPage에서 실제 호출 (신규 연동)
+- MVPPreview: 산업별 하위 컴포넌트로 lazy loading (성능 최적화)
 
 ---
 
-## 데이터 흐름
+## 데이터 흐름 (업데이트)
 
 ### 1. 데모 시작 플로우
 
 ```
-User Input
-    │
-    ▼
+User Input (아이디어)
+    |
+    v
 StartPage
-    │ projectIdea
-    ▼
-DemoSessionContext.initSession()
-    │ sessionId
-    ▼
-/api/demo/start
-    │
-    ▼
-LogService.saveLog()
-    │
-    ▼
-Navigate to DemoPage
-```
-
-### 2. AI 스트리밍 플로우
-
-```
+    |-> DemoSessionContext.initSession()
+    |-> POST /api/demo/start (세션 ID)
+    |-> LogService.logStart()  [NEW]
+    |-> router.push(/demo?idea=...)
+    v
 DemoPage
-    │ phase, stage
-    ▼
-/api/demo/stream (SSE)
-    │
-    ▼
-AIService.streamResponse()
-    │ AsyncGenerator<AIChunk>
-    ▼
-AnimationOrchestrator
-    │
-    ├─► MousePointer.moveTo()
-    │
-    ├─► FileExplorer.addFile()
-    │
-    └─► CodeEditor.setContentWithTyping()
-            │
-            ▼
-        TypingEffect
+    |-> ScenarioDetector.detectScenario(idea)  [REFACTORED]
+    |-> DemoStepGenerator.generateDemoSteps(idea)  [REFACTORED]
+    |-> useDemoProgress (상태 초기화)  [REFACTORED]
 ```
 
-### 3. 결과 생성 플로우
+### 2. 데모 진행 플로우 (Animation 통합)
 
 ```
-DemoPage (onComplete)
-    │ generatedContent
-    ▼
-/api/demo/estimate
-    │
-    ├─► EstimateService.calculateEstimate()
-    │       │
-    │       ▼
-    │   AIService (동적 추정)
-    │
-    ├─► AIService.generateMVPCode()
-    │
-    └─► AIService.generateAWSArchitecture()
-            │
-            ▼
-        DemoResult
-            │
-            ▼
-        ResultPage
-            │
-            ├─► MVPPreview.renderDynamicComponent()
-            │
-            └─► AWSArchitectureDiagram.renderDiagram()
+useRunStep.runStep(stepIdx)
+    |
+    +-> AnimationOrchestrator.executeSequence()  [NEW]
+    |     |
+    |     +-> MousePointer.moveToElement(fileExplorer)
+    |     +-> MousePointer.click()
+    |     +-> MousePointer.moveToElement(chatInput)
+    |     +-> TypingEffect.startTyping(message)
+    |     +-> MousePointer.moveToElement(sendButton)
+    |     +-> MousePointer.click()
+    |
+    +-> 채팅 메시지 추가 (AI/User/System)
+    +-> 파일 추가 (Context)
+    +-> 에디터 콘텐츠 설정
+    +-> 진행률 업데이트
+    +-> 완료 시 stepCompleted = true
+```
+
+### 3. 결과 조회 플로우
+
+```
+DemoPage 완료 -> router.push(/result?idea=...)
+    |
+    v
+ResultPage
+    |-> EstimateService.calculateEstimate(idea)
+    |-> LogService.logComplete()  [NEW]
+    |-> 6개 탭 렌더링
+         |-> MVPPreview (lazy loading)  [OPTIMIZED]
+         |-> AWSArchitectureDiagram (shimmer)  [OPTIMIZED]
+         |-> BusinessWorkflowDiagram
+         |-> ResultSummary
+```
+
+### 4. 관리자 대시보드 플로우 (신규)
+
+```
+AdminPage
+    |-> GET /api/log (통계 조회)
+    |-> 통계 카드 렌더링
+    |-> 세션 로그 테이블
+    |-> 산업별 분포 차트
+    |-> 세션 추이 차트
 ```
 
 ---
 
 ## 통신 패턴
 
-### 1. 컴포넌트 간 통신
-
 | 패턴 | 사용 위치 | 설명 |
 |------|----------|------|
-| Props Drilling | Pages → UI Components | 부모에서 자식으로 데이터 전달 |
-| Context | DemoSessionContext | 전역 상태 공유 |
-| Callbacks | Animation → Parent | 완료 이벤트 전달 |
-
-### 2. 클라이언트-서버 통신
-
-| 패턴 | API | 설명 |
-|------|-----|------|
-| REST | /api/demo/start, /api/log | 일반 요청/응답 |
-| SSE | /api/demo/stream | 스트리밍 응답 |
-| REST | /api/demo/estimate | 결과 계산 |
+| Props | Pages -> UI Components | 부모에서 자식으로 데이터 전달 |
+| Context | DemoSessionContext | 데모 세션 전역 상태 |
+| Context | LanguageContext (NEW) | 다국어 전역 상태 |
+| Custom Hook | useDemoProgress, useRunStep (NEW) | 데모 진행 로직 캡슐화 |
+| Custom Hook | useTranslation (NEW) | 번역 함수 제공 |
+| REST | /api/demo/start, /api/demo/send-report, /api/log | HTTP 요청/응답 |
+| Callbacks | Animation -> useRunStep | 애니메이션 완료 이벤트 |
+| Lazy Import | MVPPreview -> mvp-previews/* (NEW) | 동적 컴포넌트 로딩 |
+| Dynamic Import | AWSArchitectureDiagram -> mermaid | 라이브러리 동적 로딩 |
 
 ---
 
-## 외부 의존성
-
-| 의존성 | 용도 | 대안 |
-|--------|------|------|
-| LLM API | AI 콘텐츠 생성 | OpenAI, Anthropic, Bedrock |
-| Next.js | 풀스택 프레임워크 | - |
-| React | UI 라이브러리 | - |
-| Tailwind CSS | 스타일링 | - |
-| Framer Motion | 애니메이션 | CSS Animations |
-
----
-
-## 초기화 순서
+## 구현 순서 (의존성 기반)
 
 ```
-1. Next.js App 초기화
-    │
-    ▼
-2. DemoSessionContext Provider 마운트
-    │
-    ▼
-3. StartPage 렌더링
-    │
-    ▼
-4. (사용자 입력 후)
-    │
-    ▼
-5. DemoPage 마운트
-    │
-    ├─► KiroIDELayout 초기화
-    │
-    ├─► AnimationOrchestrator 초기화
-    │
-    └─► AI 스트리밍 연결
+Phase 1: 기반 작업 (의존성 없음)
+  +-> ScenarioDetector + scenarios data
+  +-> DemoStepGenerator
+  +-> useDemoProgress
+  +-> useRunStep
+  +-> LanguageContext + translations
+  +-> API 에러 응답 통일
+
+Phase 2: 핵심 변경 (Phase 1 의존)
+  +-> DemoPage 리팩토링 (Phase 1 모듈 사용)
+  +-> Animation 통합 (MousePointer, Orchestrator)
+  +-> LogService 실제 연동
+
+Phase 3: 품질 개선 (Phase 1~2 의존)
+  +-> 접근성 개선 (모든 컴포넌트)
+  +-> 성능 최적화 (MVPPreview 분리, 메모이제이션, Image)
+  +-> 미사용 코드 삭제 (stream, estimate API, AIService)
+
+Phase 4: 신규 기능 (Phase 1~3 의존)
+  +-> AdminPage
+  +-> LanguageToggle + 다국어 적용
+  +-> 에러 핸들링 UI
+
+Phase 5: 마무리
+  +-> 통합 테스트
+  +-> 빌드 검증
 ```
